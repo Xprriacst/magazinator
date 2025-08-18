@@ -28,24 +28,25 @@
 
 ---
 
-### 🔍 **Problème identifié à résoudre**
+### ✅ **Problème résolu - Placeholders configurés**
 
-#### ⚠️ **Texte placeholder non configuré dans les nouveaux templates**
+#### 🔧 **Texte placeholders maintenant configurés par template**
 
-**Symptôme :** Le texte n'est pas remplacé dans le document final
+**Solution implémentée :** Scripts mis à jour pour détecter automatiquement le template et utiliser les bons placeholders
 
-**Cause probable :** 
-- Les nouveaux templates (`template-mag-simple-*.indt`) ne contiennent pas le texte placeholder "TEXTE" que le script cherche à remplacer
-- OU le placeholder a un nom différent dans ces templates
+**Configuration par template :**
+- **`template-mag-simple-1808.indt`** :
+  - `TITRE` → Remplacé par le prompt (titre de l'article)
+  - `SOUS-TITRE` → Remplacé par les 200 premiers caractères du contenu
+  - `ARTICLE` → Remplacé par le contenu complet de l'article
 
-**Scripts concernés :**
-- `template_simple_working.jsx` (ligne ~112) : `app.findTextPreferences.findWhat = "TEXTE";`
-- `template_final_working.jsx` (ligne ~108) : `app.findTextPreferences.findWhat = "TEXTE";`
+- **`template-mag-simple-2-1808.indt`** :
+  - `ARTICLE` → Remplacé par titre + contenu complet
 
-**Solutions possibles :**
-1. **Ouvrir les templates** et vérifier quel texte placeholder existe
-2. **Modifier les scripts** pour chercher le bon placeholder
-3. **Modifier les templates** pour ajouter le placeholder "TEXTE"
+**Scripts mis à jour :**
+- ✅ `template_simple_working.jsx` : Détection automatique du template + placeholders spécifiques
+- ✅ `template_final_working.jsx` : Même logique de détection et remplacement
+- ✅ Fallback : Si template non reconnu, utilise l'ancienne méthode "TEXTE"
 
 ---
 
