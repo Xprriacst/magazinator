@@ -36,12 +36,12 @@
 
 **Configuration par template :**
 - **`template-mag-simple-1808.indt`** :
-  - `TITRE` → Remplacé par le prompt (titre de l'article)
-  - `SOUS-TITRE` → Remplacé par les 200 premiers caractères du contenu
-  - `ARTICLE` → Remplacé par le contenu complet de l'article
+  - `{{TITRE}}` → Remplacé par le prompt (titre de l'article)
+  - `{{SOUS-TITRE}}` → Remplacé par les 200 premiers caractères du contenu
+  - `{{ARTICLE}}` → Remplacé par le contenu complet de l'article
 
 - **`template-mag-simple-2-1808.indt`** :
-  - `ARTICLE` → Remplacé par titre + contenu complet
+  - `{{ARTICLE}}` → Remplacé par titre + contenu complet
 
 **Scripts mis à jour :**
 - ✅ `template_simple_working.jsx` : Détection automatique du template + placeholders spécifiques
@@ -161,10 +161,10 @@ var config = parseSimpleJSON(configData);
 var templatePath = "/path/to/template-mag-simple-1808.indt";
 var doc = app.open(templateFile);
 
-// 3. Remplacement texte (PROBLÈME ACTUEL)
-app.findTextPreferences.findWhat = "TEXTE";
-app.changeTextPreferences.changeTo = config.prompt + "\n\n" + config.text_content;
-doc.changeText(); // ← Ne trouve pas "TEXTE" dans nouveaux templates
+// 3. Remplacement texte (RÉSOLU ✅)
+// Template 1: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
+// Template 2: {{ARTICLE}} uniquement
+// Détection automatique du template et placeholders appropriés
 
 // 4. Placement image
 var rectangle = doc.pages[0].rectangles[config.rectangle_index];
@@ -285,7 +285,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5002/api/templates  # De
 - ✅ **Upload image** : Fichier sauvé dans `uploads/{project_id}/`
 - ✅ **Config JSON** : Créé avec tous les paramètres
 - ✅ **Ouverture template** : InDesign lance le template
-- ⚠️ **Remplacement texte** : Placeholder "TEXTE" non trouvé
+- ✅ **Remplacement texte** : Placeholders {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}} remplacés
 - ✅ **Placement image** : Image insérée dans rectangle
 - ✅ **Sauvegarde** : Fichier .indd créé dans `output/`
 
@@ -342,7 +342,7 @@ cd "/Users/alexandreerrasti/Library/Mobile Documents/com~apple~CloudDocs/Indesig
 - ✅ **Upload/Config** : 100% (validation robuste)
 - ✅ **Ouverture templates** : 100% (templates valides)
 - ✅ **Placement images** : 100% (rectangles existent)
-- ⚠️ **Remplacement texte** : 0% (placeholder manquant)
+- ✅ **Remplacement texte** : 100% (placeholders {{}} configurés)
 - ✅ **Sauvegarde documents** : 100% (pas d'erreurs)
 
 ---

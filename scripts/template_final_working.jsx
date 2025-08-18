@@ -106,18 +106,18 @@ function main() {
             
             // Détecter quel template on utilise
             if (templateName.indexOf("template-mag-simple-1808") !== -1) {
-                // Template 1: TITRE, SOUS-TITRE, ARTICLE
+                // Template 1: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
                 
-                // 1. Remplacer "TITRE" 
-                app.findTextPreferences.findWhat = "TITRE";
+                // 1. Remplacer "{{TITRE}}" 
+                app.findTextPreferences.findWhat = "{{TITRE}}";
                 app.changeTextPreferences.changeTo = config.prompt || "Nouveau titre";
                 doc.changeText();
                 
                 app.findTextPreferences = NothingEnum.NOTHING;
                 app.changeTextPreferences = NothingEnum.NOTHING;
                 
-                // 2. Remplacer "SOUS-TITRE"
-                app.findTextPreferences.findWhat = "SOUS-TITRE";
+                // 2. Remplacer "{{SOUS-TITRE}}"
+                app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
                 var shortText = config.text_content ? config.text_content.substring(0, 200) : "Sous-titre";
                 app.changeTextPreferences.changeTo = shortText;
                 doc.changeText();
@@ -125,15 +125,15 @@ function main() {
                 app.findTextPreferences = NothingEnum.NOTHING;
                 app.changeTextPreferences = NothingEnum.NOTHING;
                 
-                // 3. Remplacer "ARTICLE"
-                app.findTextPreferences.findWhat = "ARTICLE";
+                // 3. Remplacer "{{ARTICLE}}"
+                app.findTextPreferences.findWhat = "{{ARTICLE}}";
                 app.changeTextPreferences.changeTo = config.text_content || "Contenu de l'article";
                 doc.changeText();
                 
             } else if (templateName.indexOf("template-mag-simple-2-1808") !== -1) {
-                // Template 2: seulement ARTICLE
+                // Template 2: seulement {{ARTICLE}}
                 
-                app.findTextPreferences.findWhat = "ARTICLE";
+                app.findTextPreferences.findWhat = "{{ARTICLE}}";
                 var fullText = config.prompt || "Titre";
                 if (config.text_content) {
                     fullText += "\n\n" + config.text_content;
