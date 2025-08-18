@@ -109,7 +109,7 @@ function main() {
         alert("✅ Config parsée: " + config.project_id);
         
         // Ouvrir le template
-        var templatePath = basePath + "/indesign_templates/test-template-complex-1808.indt";
+        var templatePath = basePath + "/indesign_templates/template-mag-simple-1808.indt";
         var templateFile = new File(templatePath);
         
         if (!templateFile.exists) {

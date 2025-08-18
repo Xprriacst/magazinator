@@ -3,7 +3,7 @@
 
 try {
     // Chemin fixe pour test
-    var templatePath = "/Users/alexandreerrasti/Library/Mobile Documents/com~apple~CloudDocs/Indesign automation/indesign_templates/template-test-1708.indt";
+    var templatePath = "/Users/alexandreerrasti/Library/Mobile Documents/com~apple~CloudDocs/Indesign automation/indesign_templates/template-mag-simple-1808.indt";
     var templateFile = new File(templatePath);
     
     if (!templateFile.exists) {

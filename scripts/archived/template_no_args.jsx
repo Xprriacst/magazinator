@@ -47,7 +47,7 @@ function main() {
         alert("✅ Configuration trouvée: " + config.project_id);
         
         // Chemin du template
-        var templatePath = basePath + "/indesign_templates/template-test-1708.indt";
+        var templatePath = basePath + "/indesign_templates/template-mag-simple-1808.indt";
         var templateFile = new File(templatePath);
         
         if (!templateFile.exists) {

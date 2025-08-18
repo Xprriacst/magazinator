@@ -31,12 +31,12 @@
               "fieldOptions": {
                 "values": [
                   {
-                    "option": "Template Test 1808 (nouveau)",
-                    "value": "template-test-1808"
+                    "option": "Template Magazine Simple 1",
+                    "value": "template-mag-simple-1808"
                   },
                   {
-                    "option": "Template Test 1708 (ancien)", 
-                    "value": "template-test-1708"
+                    "option": "Template Magazine Simple 2", 
+                    "value": "template-mag-simple-2-1808"
                   }
                 ]
               },
@@ -82,7 +82,7 @@
             },
             {
               "name": "template",
-              "value": "={{ $('Formulaire InDesign').item.json['Template à utiliser'] || 'template-test-1808' }}"
+              "value": "={{ $('Formulaire InDesign').item.json['Template à utiliser'] || 'template-mag-simple-1808' }}"
             }
           ]
         },

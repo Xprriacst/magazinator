@@ -28,7 +28,7 @@ try {
     var config = JSON.parse(configData);
     
     // Chercher le template
-    var templatePath = configFile.parent.parent + "/indesign_templates/template-test-1708.indt";
+    var templatePath = configFile.parent.parent + "/indesign_templates/template-mag-simple-1808.indt";
     var templateFile = new File(templatePath);
     
     if (!templateFile.exists) {

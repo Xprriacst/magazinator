@@ -83,9 +83,9 @@ function main() {
         }
         
         
-        // Chemin du template - utiliser celui spécifié dans config ou par défaut 1808
-        var templateName = config.template || "template-test-1808";
-        if (!templateName.endsWith('.indt')) {
+        // Chemin du template - utiliser celui spécifié dans config ou par défaut
+        var templateName = config.template || "template-mag-simple-1808";
+        if (templateName.length < 5 || templateName.substring(templateName.length - 5) !== '.indt') {
             templateName += '.indt';
         }
         var templatePath = configFile.parent.parent + "/indesign_templates/" + templateName;
