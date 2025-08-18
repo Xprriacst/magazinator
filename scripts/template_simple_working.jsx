@@ -29,6 +29,12 @@ function parseSimpleJSON(jsonString) {
             config.text_content = textMatch[1];
         }
         
+        // Extraire subtitle
+        var subtitleMatch = jsonString.match(/"subtitle":\s*"([^"]+)"/);
+        if (subtitleMatch) {
+            config.subtitle = subtitleMatch[1];
+        }
+        
         // Extraire rectangle_index
         var rectangleMatch = jsonString.match(/"rectangle_index":\s*"([^"]+)"/);
         config.rectangle_index = rectangleMatch ? parseInt(rectangleMatch[1]) : 0;
@@ -152,8 +158,8 @@ function main() {
                 
                 // 2. Remplacer "{{SOUS-TITRE}}"
                 app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
-                var shortText = config.text_content ? config.text_content.substring(0, 200) : "Sous-titre";
-                app.changeTextPreferences.changeTo = shortText;
+                var subtitleText = config.subtitle || "Sous-titre par défaut";
+                app.changeTextPreferences.changeTo = subtitleText;
                 var foundSousTitre = doc.changeText();
                 alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
                 

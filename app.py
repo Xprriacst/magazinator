@@ -125,6 +125,7 @@ def create_layout():
         # Récupérer les données du formulaire
         prompt = request.form.get('prompt', '')
         text_content = request.form.get('text_content', '')
+        subtitle = request.form.get('subtitle', '')
         template_name = request.form.get('template', 'default')
         rectangle_index = request.form.get('rectangle_index', '0')
         
@@ -158,6 +159,7 @@ def create_layout():
             'project_id': project_id,
             'prompt': prompt,
             'text_content': text_content,
+            'subtitle': subtitle,
             'images': absolute_images,
             'template': template_name,
             'rectangle_index': rectangle_index,
@@ -200,6 +202,7 @@ def create_layout_urls():
         # Récupérer les données
         prompt = request.form.get('prompt') or (request.get_json(silent=True) or {}).get('prompt', '')
         text_content = request.form.get('text_content') or (request.get_json(silent=True) or {}).get('text_content', '')
+        subtitle = request.form.get('subtitle') or (request.get_json(silent=True) or {}).get('subtitle', '')
         template_name = request.form.get('template') or (request.get_json(silent=True) or {}).get('template', 'default')
         image_urls = _parse_image_urls_from_request(request)
 
@@ -229,6 +232,7 @@ def create_layout_urls():
             'project_id': project_id,
             'prompt': prompt,
             'text_content': text_content,
+            'subtitle': subtitle,
             'images': absolute_images,
             'template': template_name,
             'layout_instructions': layout_instructions,

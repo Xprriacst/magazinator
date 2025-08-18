@@ -136,7 +136,25 @@
                             required
                         >
                         <div class="form-text">
-                            Ce titre remplacera le texte "TEXTE" dans votre template.
+                            Ce titre remplacera {{ '{{TITRE}}' }} dans votre template.
+                        </div>
+                    </div>
+                    
+                    <!-- Section Sous-titre -->
+                    <div class="mb-4">
+                        <label for="subtitle" class="form-label">
+                            <i class="fas fa-heading text-secondary"></i> 
+                            <strong>Sous-titre de l'article</strong>
+                        </label>
+                        <input 
+                            type="text"
+                            class="form-control" 
+                            id="subtitle" 
+                            name="subtitle" 
+                            placeholder="Ex: Les nouvelles technologies qui révolutionnent notre quotidien"
+                        >
+                        <div class="form-text">
+                            Ce sous-titre remplacera {{ '{{SOUS-TITRE}}' }} dans le template Magazine Simple 1.
                         </div>
                     </div>
                     
@@ -194,18 +212,18 @@
                     <div class="mb-4">
                         <label for="textContent" class="form-label">
                             <i class="fas fa-align-left text-primary"></i> 
-                            <strong>Texte de l'article</strong>
+                            <strong>Corps de l'article</strong>
                         </label>
                         <textarea 
                             class="form-control" 
                             id="textContent" 
                             name="text_content" 
                             rows="8" 
-                            placeholder="Saisissez le contenu de votre article ici..."
+                            placeholder="Saisissez le contenu principal de votre article ici..."
                             required
                         ></textarea>
                         <div class="form-text">
-                            Ce texte sera ajouté après le titre dans le document.
+                            Ce texte remplacera {{ '{{ARTICLE}}' }} dans votre template.
                         </div>
                     </div>
                     

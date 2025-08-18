@@ -62,6 +62,12 @@ function main() {
             config.text_content = textMatch[1];
         }
         
+        // Extraire subtitle
+        var subtitleMatch = configData.match(/"subtitle":\s*"([^"]+)"/);
+        if (subtitleMatch) {
+            config.subtitle = subtitleMatch[1];
+        }
+        
         // Extraire template
         var templateMatch = configData.match(/"template":\s*"([^"]+)"/);
         if (templateMatch) {
@@ -118,8 +124,8 @@ function main() {
                 
                 // 2. Remplacer "{{SOUS-TITRE}}"
                 app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
-                var shortText = config.text_content ? config.text_content.substring(0, 200) : "Sous-titre";
-                app.changeTextPreferences.changeTo = shortText;
+                var subtitleText = config.subtitle || "Sous-titre par défaut";
+                app.changeTextPreferences.changeTo = subtitleText;
                 doc.changeText();
                 
                 app.findTextPreferences = NothingEnum.NOTHING;
