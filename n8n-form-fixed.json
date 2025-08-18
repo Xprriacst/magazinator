@@ -1,0 +1,146 @@
+{
+  "name": "InDesign Form - Corrigé",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "indesign-form",
+        "formTitle": "🎨 Créateur InDesign",
+        "formDescription": "Créez votre mise en page InDesign automatiquement",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Titre de l'article",
+              "fieldType": "text",
+              "placeholder": "Ex: Magazine Tech Innovation",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Corps de l'article",
+              "fieldType": "textarea",
+              "placeholder": "Saisissez le contenu de votre article...",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Image à importer",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Template à utiliser",
+              "fieldType": "select",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Template Test 1808 (nouveau)",
+                    "value": "template-test-1808"
+                  },
+                  {
+                    "option": "Template Test 1708 (ancien)", 
+                    "value": "template-test-1708"
+                  }
+                ]
+              },
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {
+          "formSubmittedText": "✅ Votre document est en cours de création..."
+        }
+      },
+      "id": "form-trigger",
+      "name": "Formulaire InDesign",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "webhookId": "indesign-form"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5002/api/create-layout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "form",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $('Formulaire InDesign').item.json['Titre de l\\'article'] }}"
+            },
+            {
+              "name": "text_content", 
+              "value": "={{ $('Formulaire InDesign').item.json['Corps de l\\'article'] }}"
+            },
+            {
+              "name": "template",
+              "value": "={{ $('Formulaire InDesign').item.json['Template à utiliser'] || 'template-test-1808' }}"
+            }
+          ]
+        },
+        "sendBinaryData": true,
+        "binaryPropertyName": "image",
+        "binaryData": "={{ $('Formulaire InDesign').item.binary['Image à importer'] }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "api-call",
+      "name": "Appel API Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traitement du résultat\nconst response = $input.item.json;\n\nif (response.success) {\n  return {\n    status: 'success',\n    message: '🎉 Document InDesign créé avec succès!',\n    project_id: response.project_id,\n    download_url: `http://localhost:5002/api/download/${response.project_id}`,\n    output_file: response.output_file,\n    timestamp: new Date().toISOString()\n  };\n} else {\n  return {\n    status: 'error',\n    message: '❌ Erreur lors de la création',\n    error: response.error || 'Erreur inconnue',\n    timestamp: new Date().toISOString()\n  };\n}"
+      },
+      "id": "process-result",
+      "name": "Traiter Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Formulaire InDesign": {
+      "main": [
+        [
+          {
+            "node": "Appel API Flask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appel API Flask": {
+      "main": [
+        [
+          {
+            "node": "Traiter Résultat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": ["indesign", "formulaire"],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-18T11:45:00.000Z",
+  "versionId": "1"
+}

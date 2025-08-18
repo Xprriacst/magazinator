@@ -1,0 +1,35 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+
+# InDesign
+*.idlk
+*~*
+.DS_Store
+
+# Logs
+*.log
+debug_indesign.log
+
+# Uploads et output (fichiers générés)
+uploads/
+output/
+*.indd
+
+# Environment variables
+.env
+
+# Node modules (si n8n local)
+node_modules/
+
+# Temporary files
+*.tmp
+*.temp
+ngrok.log

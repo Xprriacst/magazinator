@@ -1,0 +1,193 @@
+{
+  "name": "InDesign Form - Interface Simple",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "🎨 Créateur InDesign",
+        "formDescription": "Créez votre mise en page InDesign automatiquement",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Titre de l'article",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Ex: Magazine Tech Innovation"
+            },
+            {
+              "fieldLabel": "Corps de l'article", 
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "Saisissez le contenu de votre article..."
+            },
+            {
+              "fieldLabel": "URL de l'image",
+              "fieldType": "text", 
+              "requiredField": true,
+              "placeholder": "https://example.com/image.jpg"
+            },
+            {
+              "fieldLabel": "Template à utiliser",
+              "fieldType": "select",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Template Test 1808 (nouveau)",
+                    "value": "template-test-1808"
+                  },
+                  {
+                    "option": "Template Test 1708 (ancien)",
+                    "value": "template-test-1708"
+                  }
+                ]
+              },
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {
+          "formSubmittedText": "✅ Votre demande est en cours de traitement..."
+        }
+      },
+      "id": "form-trigger",
+      "name": "Formulaire InDesign",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [100, 300],
+      "webhookId": "indesign-form"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5002/api/create-layout-urls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization", 
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"{{ $('Formulaire InDesign').item.json['Titre de l\\'article'] }}\",\n  \"text_content\": \"{{ $('Formulaire InDesign').item.json['Corps de l\\'article'] }}\",\n  \"image_urls\": [\"{{ $('Formulaire InDesign').item.json['URL de l\\'image'] }}\"],\n  \"template\": \"{{ $('Formulaire InDesign').item.json['Template à utiliser'] || 'default' }}\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "api-call",
+      "name": "Appel API Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success_condition",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-result",
+      "name": "Vérifier Résultat",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"message\": \"🎉 Votre document InDesign a été créé avec succès!\",\n  \"project_id\": \"{{ $('Appel API Flask').item.json.project_id }}\",\n  \"download_url\": \"http://localhost:5002/api/download/{{ $('Appel API Flask').item.json.project_id }}\",\n  \"output_file\": \"{{ $('Appel API Flask').item.json.output_file }}\",\n  \"timestamp\": \"{{ $now }}\"\n}",
+        "options": {}
+      },
+      "id": "success-response",
+      "name": "Réponse Succès",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"message\": \"❌ Erreur lors de la création du document\",\n  \"error\": \"{{ $('Appel API Flask').item.json.error || 'Erreur inconnue' }}\",\n  \"troubleshooting\": \"Vérifiez que InDesign est ouvert et que l'API fonctionne\",\n  \"timestamp\": \"{{ $now }}\"\n}",
+        "options": {}
+      },
+      "id": "error-response", 
+      "name": "Réponse Erreur",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 400]
+    }
+  ],
+  "connections": {
+    "Formulaire InDesign": {
+      "main": [
+        [
+          {
+            "node": "Appel API Flask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appel API Flask": {
+      "main": [
+        [
+          {
+            "node": "Vérifier Résultat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vérifier Résultat": {
+      "main": [
+        [
+          {
+            "node": "Réponse Succès",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Réponse Erreur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": ["indesign", "formulaire"],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-18T11:25:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,231 @@
+{
+  "name": "InDesign Automation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-automation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1f2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "indesign-automation"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5002/api/create-layout-urls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt || 'Créer un magazine moderne avec titre accrocheur' }}"
+            },
+            {
+              "name": "text_content",
+              "value": "={{ $json.text_content || 'Voici un article test pour démontrer la mise en page automatique avec InDesign.' }}"
+            },
+            {
+              "name": "image_urls",
+              "value": "={{ $json.image_urls || ['https://picsum.photos/800/600?random=1', 'https://picsum.photos/600/400?random=2'] }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "2a3b4c5d-6e7f-8a9b-0c1d-2e3f4a5b6c7d",
+      "name": "Call Flask API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "success_condition",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3b4c5d6e-7f8a-9b0c-1d2e-3f4a5b6c7d8e",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://localhost:5002/api/download/' + $('Call Flask API').item.json.project_id }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "4c5d6e7f-8a9b-0c1d-2e3f-4a5b6c7d8e9f",
+      "name": "Download InDesign File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"status\": \"success\",\n  \"message\": \"Mise en page InDesign créée avec succès!\",\n  \"project_id\": $('Call Flask API').item.json.project_id,\n  \"download_url\": 'http://localhost:5002/api/download/' + $('Call Flask API').item.json.project_id,\n  \"output_file\": $('Call Flask API').item.json.output_file\n} }}",
+        "options": {}
+      },
+      "id": "5d6e7f8a-9b0c-1d2e-3f4a-5b6c7d8e9f0a",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"status\": \"error\",\n  \"message\": \"Erreur lors de la création de la mise en page\",\n  \"error\": $('Call Flask API').item.json.error || 'Erreur inconnue',\n  \"details\": $json\n} }}",
+        "options": {}
+      },
+      "id": "6e7f8a9b-0c1d-2e3f-4a5b-6c7d8e9f0a1b",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        900,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ {\n  \"workflow_info\": {\n    \"name\": \"InDesign Automation\",\n    \"description\": \"Workflow pour automatiser la création de mises en page InDesign\",\n    \"timestamp\": $now,\n    \"webhook_url\": $('Webhook').item.json.headers.host + '/webhook/' + $('Webhook').item.json.webhookUrl.split('/').pop()\n  },\n  \"input_data\": $json,\n  \"flask_response\": $('Call Flask API').item.json\n} }}",
+        "options": {}
+      },
+      "id": "7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c",
+      "name": "Log Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        460,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Call Flask API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Flask API": {
+      "main": [
+        [
+          {
+            "node": "Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Success": {
+      "main": [
+        [
+          {
+            "node": "Download InDesign File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download InDesign File": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-08-17T20:00:00.000Z",
+      "updatedAt": "2025-08-17T20:00:00.000Z",
+      "id": "indesign-automation",
+      "name": "InDesign Automation"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-08-17T20:00:00.000Z",
+  "versionId": "1"
+}
