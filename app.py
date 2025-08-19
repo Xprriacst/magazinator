@@ -467,5 +467,30 @@ def get_templates():
     
     return jsonify(templates)
 
+@app.route('/api/config')
+def get_config():
+    """Endpoint pour n8n pour récupérer l'URL et port automatiquement"""
+    import socket
+    
+    # Détecter l'IP locale
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+    except:
+        local_ip = '127.0.0.1'
+    finally:
+        s.close()
+    
+    return jsonify({
+        'base_url': f'http://{local_ip}:5003',
+        'endpoints': {
+            'create_layout': f'http://{local_ip}:5003/api/create-layout',
+            'create_layout_urls': f'http://{local_ip}:5003/api/create-layout-urls'
+        },
+        'status': 'running',
+        'port': 5003
+    })
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    app.run(debug=True, host='0.0.0.0', port=5003)

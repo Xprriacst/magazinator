@@ -1,0 +1,186 @@
+{
+  "name": "InDesign avec n\u0153ud OpenAI - Version Stable",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "indesign-ai-complete",
+        "formTitle": "\ud83e\udd16 Cr\u00e9ateur InDesign avec IA",
+        "formDescription": "Collez votre contenu, uploadez vos images, l'IA s'occupe du reste !",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "contenu",
+              "fieldType": "textarea",
+              "placeholder": "Collez ici tout votre texte : titre, sous-titre, article... L'IA va analyser et s\u00e9parer automatiquement",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "images",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc469ab9-c549-4fa4-b206-dfe5810ecdc7",
+      "name": "Formulaire IA",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        128,
+        -32
+      ],
+      "webhookId": "indesign-ai-complete"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en analyse de contenu \u00e9ditorial. Analyse le texte fourni et identifie le titre principal, le sous-titre (s'il existe), et le corps de l'article. R\u00e9ponds UNIQUEMENT avec un JSON valide: {\"title\": \"titre extrait\", \"subtitle\": \"sous-titre ou vide\", \"body\": \"corps de l'article\"}",
+              "role": "system"
+            },
+            {
+              "content": "={{ \"Contenu \u00e0 analyser: \" + $node[\"Formulaire IA\"].json[\"contenu\"] }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        272,
+        -32
+      ],
+      "id": "c4ad605f-4074-49aa-8d74-fdb7299c5fbd",
+      "name": "Analyse OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traitement de la r\u00e9ponse OpenAI et s\u00e9lection du template\nconst aiResponse = $input.item.json.text;\nconst formData = $node[\"Formulaire IA\"].json;\nconst binaryData = $node[\"Formulaire IA\"].binary;\n\n// Parser la r\u00e9ponse JSON d'OpenAI\nlet analysis;\ntry {\n  const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n  analysis = JSON.parse(cleanResponse);\n} catch (e) {\n  // Fallback si parsing \u00e9choue\n  console.log('Parsing failed:', e.message);\n  analysis = {\n    title: 'Titre de l\\'article',\n    subtitle: '',\n    body: formData.contenu || ''\n  };\n}\n\n// Compter les images\nconst imageCount = Object.keys(binaryData || {}).length;\nconsole.log('Images d\u00e9tect\u00e9es:', imageCount);\nconsole.log('Binary data keys:', Object.keys(binaryData || {}));\n\n// S\u00e9lectionner le template\nlet template;\nif (imageCount === 1) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount >= 3) {\n  template = 'template-mag-simple-2-1808';\n} else {\n  template = 'template-mag-simple-1808'; // d\u00e9faut\n}\n\n// Retourner les donn\u00e9es structur\u00e9es\nreturn {\n  // Donn\u00e9es analys\u00e9es par l'IA\n  ai_analysis: {\n    title: analysis.title,\n    subtitle: analysis.subtitle,\n    body: analysis.body\n  },\n  // Donn\u00e9es de template\n  template_selection: {\n    template: template,\n    image_count: imageCount,\n    reason: imageCount === 1 ? '1 image d\u00e9tect\u00e9e' : imageCount >= 3 ? imageCount + ' images d\u00e9tect\u00e9es' : 'D\u00e9faut'\n  },\n  // Donn\u00e9es originales\n  original_content: formData.contenu,\n  // Debug\n  debug: {\n    ai_raw_response: aiResponse,\n    binary_keys: Object.keys(binaryData || {})\n  }\n};"
+      },
+      "id": "bb46b257-972d-42cb-91a5-a6903bc18e8a",
+      "name": "Traitement IA & Template",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.15:5003/api/create-layout-urls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"ai_analysis\"][\"title\"]) }},\n  \"text_content\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"original_content\"]) }},\n  \"template\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"template_selection\"][\"template\"]) }},\n  \"ai_title\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"ai_analysis\"][\"title\"]) }},\n  \"ai_subtitle\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"ai_analysis\"][\"subtitle\"]) }},\n  \"ai_body\": {{ JSON.stringify($node[\"Traitement IA & Template\"].json[\"ai_analysis\"][\"body\"]) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "8d6ea340-530d-4f38-8cd5-85b4069b94f2",
+      "name": "Cr\u00e9ation InDesign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        736,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst aiData = $node[\"Traitement IA & Template\"].json;\n\nif (response.success) {\n  return {\n    status: 'success',\n    message: '\ud83c\udf89 Document cr\u00e9\u00e9 avec l\\'IA !',\n    details: {\n      template_used: aiData.template_selection.template,\n      template_reason: aiData.template_selection.reason,\n      image_count: aiData.template_selection.image_count,\n      ai_analysis: {\n        title: aiData.ai_analysis.title,\n        subtitle: aiData.ai_analysis.subtitle,\n        body_preview: aiData.ai_analysis.body.substring(0, 100) + '...'\n      }\n    },\n    project_id: response.project_id,\n    download_url: `http://127.0.0.1:5002/api/download/${response.project_id}`\n  };\n} else {\n  return {\n    status: 'error',\n    message: '\u274c Erreur: ' + (response.error || 'Erreur inconnue'),\n    ai_data: aiData,\n    debug_info: response\n  };\n}"
+      },
+      "id": "fa46800e-a225-4fcb-bd93-a408269f9110",
+      "name": "R\u00e9sultat Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        -32
+      ]
+    }
+  ],
+  "connections": {
+    "Formulaire IA": {
+      "main": [
+        [
+          {
+            "node": "Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Traitement IA & Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traitement IA & Template": {
+      "main": [
+        [
+          {
+            "node": "Cr\u00e9ation InDesign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cr\u00e9ation InDesign": {
+      "main": [
+        [
+          {
+            "node": "R\u00e9sultat Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0c58a494b180993f365db360a01c1bc7b6bc47cc008c314ce86d0993e2b71cb"
+  }
+}

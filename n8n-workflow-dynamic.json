@@ -1,0 +1,273 @@
+{
+  "name": "InDesign avec URL Dynamique + IA",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "indesign-ai-complete",
+        "formTitle": "🤖 Créateur InDesign avec IA + Drive",
+        "formDescription": "Collez votre contenu, uploadez vos images, elles seront stockées sur Google Drive !",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "contenu",
+              "fieldType": "textarea",
+              "placeholder": "Collez ici tout votre texte : titre, sous-titre, article... L'IA va analyser et séparer automatiquement",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "images",
+              "fieldType": "file",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4e001452-de5b-48a5-9e9c-78aca3d29a39",
+      "name": "Formulaire IA",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [-224, 80],
+      "webhookId": "indesign-ai-complete"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Détection automatique de l'IP et du port Flask\nconst { execSync } = require('child_process');\nconst os = require('os');\n\n// Méthode 1: Détecter l'IP locale\nfunction getLocalIP() {\n  const interfaces = os.networkInterfaces();\n  for (const name of Object.keys(interfaces)) {\n    for (const interface of interfaces[name]) {\n      if (interface.family === 'IPv4' && !interface.internal) {\n        return interface.address;\n      }\n    }\n  }\n  return '127.0.0.1';\n}\n\n// Méthode 2: Tester les ports communs\nfunction testFlaskPort(ip) {\n  const ports = [5003, 5002, 5000, 5001];\n  \n  for (const port of ports) {\n    try {\n      const testUrl = `http://${ip}:${port}/api/config`;\n      // Note: Dans n8n, on ne peut pas faire de requête HTTP synchrone ici\n      // On va donc construire l'URL avec les bonnes pratiques\n      console.log(`Testing: ${testUrl}`);\n      return { ip, port, url: `http://${ip}:${port}` };\n    } catch (e) {\n      continue;\n    }\n  }\n  \n  // Fallback vers le port par défaut\n  return { ip, port: 5003, url: `http://${ip}:5003` };\n}\n\nconst localIP = getLocalIP();\nconst flaskConfig = testFlaskPort(localIP);\n\nconsole.log('🌐 IP détectée:', localIP);\nconsole.log('🔧 Configuration Flask:', flaskConfig);\n\n// Passer les données + configuration dynamique\nreturn {\n  json: {\n    flask_config: flaskConfig,\n    form_data: $input.item.json,\n    dynamic_url: {\n      base: flaskConfig.url,\n      create_layout: `${flaskConfig.url}/api/create-layout-urls`,\n      download_base: `${flaskConfig.url}/api/download/`\n    }\n  }\n};"
+      },
+      "id": "auto-ip-detector",
+      "name": "🌐 Détecteur IP Automatique",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traitement des images du formulaire pour Google Drive\nconst items = [];\nconst binaryData = $input.item.json.form_data.binary;\nconst flaskConfig = $input.item.json.flask_config;\n\n// Debug\nconsole.log('🔧 Flask URL détectée:', flaskConfig.url);\nconsole.log('Binary data keys:', Object.keys(binaryData || {}));\n\n// Traiter chaque image uploadée\nif (binaryData) {\n  Object.entries(binaryData).forEach(([key, data], index) => {\n    console.log(`Processing image ${index + 1}:`, key);\n    \n    // Créer un item pour chaque image avec le bon format pour Google Drive\n    items.push({\n      json: {\n        fileName: data.fileName || `image_${index + 1}`,\n        mimeType: data.mimeType || 'image/jpeg',\n        flask_config: flaskConfig // Passer la config à travers le pipeline\n      },\n      binary: {\n        data: data\n      }\n    });\n  });\n}\n\nif (items.length === 0) {\n  // Aucune image trouvée, passer quand même avec la config\n  return [{ json: { \n    message: 'Aucune image à uploader',\n    flask_config: flaskConfig\n  }}];\n}\n\nconsole.log(`Préparation de ${items.length} images pour Google Drive`);\nreturn items;"
+      },
+      "id": "101ed0c0-9715-43b0-9490-adacd525a5a1",
+      "name": "Processeur Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [144, 0]
+    },
+    {
+      "parameters": {
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1dcQa4ba5Y2u8nEtqVLe86B8XUk5nKrfd",
+          "mode": "list",
+          "cachedResultName": "InDesign Images",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1dcQa4ba5Y2u8nEtqVLe86B8XUk5nKrfd"
+        },
+        "options": {}
+      },
+      "id": "24adb8b3-4b5f-4320-a83d-046dd1a7e8b3",
+      "name": "Upload Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [288, 0],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "ISPoOzW7TPNoUePH",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Passer les données Drive + Formulaire vers OpenAI + Config Flask\nconst driveResults = $input.item.json;\nconst formData = $node[\"🌐 Détecteur IP Automatique\"].json.form_data;\nconst flaskConfig = $node[\"🌐 Détecteur IP Automatique\"].json.flask_config;\n\nconsole.log('🔧 Configuration Flask transmise:', flaskConfig);\nconsole.log('Drive results received:', driveResults);\nconsole.log('Form data:', formData);\n\n// Créer les URLs Google Drive\nlet imageUrls = [];\nlet imageCount = 0;\n\nif (Array.isArray(driveResults)) {\n  // Plusieurs fichiers uploadés\n  imageUrls = driveResults.map(file => `https://drive.google.com/uc?id=${file.id}`);\n  imageCount = driveResults.length;\n} else if (driveResults && driveResults.id) {\n  // Un seul fichier uploadé\n  imageUrls = [`https://drive.google.com/uc?id=${driveResults.id}`];\n  imageCount = 1;\n}\n\nconsole.log('Images URLs créées:', imageUrls);\n\n// Retourner les données pour OpenAI avec les infos Drive + Config Flask\nreturn {\n  json: {\n    contenu: formData.contenu,\n    flask_config: flaskConfig,\n    drive_info: {\n      image_urls: imageUrls,\n      image_count: imageCount,\n      drive_response: driveResults\n    }\n  }\n};"
+      },
+      "id": "0774e4f8-28c9-4d6d-9549-46eb67863834",
+      "name": "Préparation pour IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [432, 0]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en analyse de contenu éditorial. Analyse le texte fourni et identifie le titre principal, le sous-titre, et le corps de l'article. Si il n'y a pas de titre clair, génère un titre pertinent basé sur le contenu. Si il n'y a pas de sous-titre, génère un sous-titre accrocheur. Réponds UNIQUEMENT avec un JSON valide: {\"title\": \"titre extrait ou généré\", \"subtitle\": \"sous-titre extrait ou généré\", \"body\": \"corps de l'article\"}",
+              "role": "system"
+            },
+            {
+              "content": "={{ \"Contenu à analyser: \" + $input.item.json.contenu }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [576, -144],
+      "id": "8c64d1c4-8d6d-48ff-b792-69a5274cc775",
+      "name": "Analyse OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traitement final : combiner IA + Drive + Config Flask Dynamique\nconst aiResponse = $input.item.json.text;\nconst previousData = $node[\"Préparation pour IA\"].json;\nconst formData = $node[\"🌐 Détecteur IP Automatique\"].json.form_data;\nconst flaskConfig = $node[\"🌐 Détecteur IP Automatique\"].json.flask_config;\n\nconsole.log('🔧 Configuration Flask finale:', flaskConfig);\nconsole.log('AI Response:', aiResponse);\nconsole.log('Previous data:', previousData);\n\n// Parser la réponse JSON d'OpenAI\nlet analysis;\ntry {\n  const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n  console.log('Cleaned AI response:', cleanResponse);\n  analysis = JSON.parse(cleanResponse);\n  console.log('Parsed analysis:', analysis);\n} catch (e) {\n  console.log('❌ Parsing failed:', e.message);\n  console.log('❌ Raw response:', aiResponse);\n  analysis = {\n    title: 'Erreur parsing IA',\n    subtitle: 'Erreur parsing IA',\n    body: formData.contenu || 'Erreur parsing IA'\n  };\n}\n\n// Récupérer les infos Drive\nconst driveInfo = previousData.drive_info;\nconst imageUrls = driveInfo.image_urls;\nconst imageCount = driveInfo.image_count;\n\nconsole.log('✅ Images uploadées sur Drive:', imageCount);\nconsole.log('✅ URLs générées:', imageUrls);\nconsole.log('✅ Analyse IA titre:', analysis.title);\nconsole.log('✅ Analyse IA sous-titre:', analysis.subtitle);\n\n// Sélectionner le template\nlet template;\nif (imageCount === 1) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount >= 3) {\n  template = 'template-mag-simple-2-1808';\n} else {\n  template = 'template-mag-simple-1808';\n}\n\n// Retourner les données structurées avec config Flask dynamique\nreturn {\n  ai_analysis: {\n    title: analysis.title,\n    subtitle: analysis.subtitle,\n    body: analysis.body\n  },\n  template_selection: {\n    template: template,\n    image_count: imageCount,\n    reason: imageCount === 1 ? '1 image détectée' : imageCount >= 3 ? imageCount + ' images détectées' : 'Défaut'\n  },\n  google_drive: {\n    image_urls: imageUrls,\n    upload_count: imageCount\n  },\n  flask_config: flaskConfig,\n  dynamic_urls: {\n    create_layout: `${flaskConfig.url}/api/create-layout-urls`,\n    download_base: `${flaskConfig.url}/api/download/`\n  },\n  original_content: formData.contenu,\n  debug: {\n    ai_raw_response: aiResponse,\n    drive_response: driveInfo.drive_response,\n    detected_ip: flaskConfig.ip,\n    detected_port: flaskConfig.port\n  }\n};"
+      },
+      "id": "c087713b-d5ed-4df2-8da5-9b75608df0bf",
+      "name": "Traitement Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"Traitement Final\"].json[\"dynamic_urls\"][\"create_layout\"] }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"ai_analysis\"][\"title\"]) }},\n  \"text_content\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"original_content\"]) }},\n  \"template\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"template_selection\"][\"template\"]) }},\n  \"ai_title\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"ai_analysis\"][\"title\"]) }},\n  \"ai_subtitle\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"ai_analysis\"][\"subtitle\"]) }},\n  \"ai_body\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"ai_analysis\"][\"body\"]) }},\n  \"image_urls\": {{ JSON.stringify($node[\"Traitement Final\"].json[\"google_drive\"][\"image_urls\"]) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "c4fcafd3-7706-4947-b2ff-fe4bb0471887",
+      "name": "🚀 Création InDesign (URL Dynamique)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [864, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst aiData = $node[\"Traitement Final\"].json;\nconst flaskConfig = aiData.flask_config;\n\n// Debug pour voir ce qui arrive\nconsole.log('🔧 Flask Config utilisée:', flaskConfig);\nconsole.log('AI Data:', JSON.stringify(aiData, null, 2));\nconsole.log('AI Analysis:', aiData.ai_analysis);\nconsole.log('Titre détecté:', aiData.ai_analysis?.title);\nconsole.log('Sous-titre détecté:', aiData.ai_analysis?.subtitle);\n\nif (response.success) {\n  return {\n    status: 'success',\n    message: '🎉 Document créé avec URL dynamique + Google Drive + IA !',\n    details: {\n      flask_config: {\n        detected_ip: flaskConfig.ip,\n        detected_port: flaskConfig.port,\n        used_url: flaskConfig.url\n      },\n      template_used: aiData.template_selection.template,\n      template_reason: aiData.template_selection.reason,\n      image_count: aiData.template_selection.image_count,\n      drive_urls: aiData.google_drive.image_urls,\n      ai_analysis: {\n        title: aiData.ai_analysis?.title || '⚠️ Titre non extrait par l\\'IA',\n        subtitle: aiData.ai_analysis?.subtitle || '⚠️ Sous-titre non extrait par l\\'IA',\n        body_preview: (aiData.ai_analysis?.body || 'Contenu non analysé').substring(0, 100) + '...'\n      },\n      debug_raw_ai: aiData.debug?.ai_raw_response\n    },\n    project_id: response.project_id,\n    download_url: `${aiData.dynamic_urls.download_base}${response.project_id}`\n  };\n} else {\n  return {\n    status: 'error',\n    message: '❌ Erreur: ' + (response.error || 'Erreur inconnue'),\n    flask_config: flaskConfig,\n    ai_data: aiData,\n    debug_info: response\n  };\n}"
+      },
+      "id": "6a3b3d62-72fb-4747-aa54-bce259904560",
+      "name": "✅ Résultat Final (URL Dynamique)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1008, 0]
+    }
+  ],
+  "connections": {
+    "Formulaire IA": {
+      "main": [
+        [
+          {
+            "node": "🌐 Détecteur IP Automatique",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 Détecteur IP Automatique": {
+      "main": [
+        [
+          {
+            "node": "Processeur Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processeur Images": {
+      "main": [
+        [
+          {
+            "node": "Upload Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Google Drive": {
+      "main": [
+        [
+          {
+            "node": "Préparation pour IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparation pour IA": {
+      "main": [
+        [
+          {
+            "node": "Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Traitement Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Traitement Final": {
+      "main": [
+        [
+          {
+            "node": "🚀 Création InDesign (URL Dynamique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 Création InDesign (URL Dynamique)": {
+      "main": [
+        [
+          {
+            "node": "✅ Résultat Final (URL Dynamique)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0c58a494b180993f365db360a01c1bc7b6bc47cc008c314ce86d0993e2b71cb"
+  }
+}
