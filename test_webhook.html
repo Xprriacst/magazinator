@@ -106,6 +106,19 @@
 
         <form id="webhookForm">
             <div class="form-group">
+                <label for="apiTokenInput">API Token (optionnel, requis si Flask l'exige):</label>
+                <input type="password" id="apiTokenInput" placeholder="Collez votre token API (Bearer)">
+            </div>
+            <div class="form-group">
+                <label for="promptInput">Prompt (requis pour l'upload direct Flask):</label>
+                <input type="text" id="promptInput" value="Créer une mise en page depuis la page de test" placeholder="Décrivez brièvement votre intention de mise en page">
+            </div>
+
+            <div class="form-group">
+                <label for="subtitleInput">Sous-titre (optionnel):</label>
+                <input type="text" id="subtitleInput" placeholder="Sous-titre...">
+            </div>
+            <div class="form-group">
                 <label for="webhookUrlInput">URL du webhook n8n:</label>
                 <input type="url" id="webhookUrlInput" value="http://localhost:5678/webhook/indesign-webhook" placeholder="http://localhost:5678/webhook/indesign-webhook">
             </div>
@@ -130,7 +143,14 @@ https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800,
 https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800</textarea>
             </div>
 
+            <div class="form-group">
+                <label for="imagesInput">OU uploadez des images (envoi direct vers Flask):</label>
+                <input type="file" id="imagesInput" accept="image/*" multiple>
+                <small>Formats autorisés: png, jpg, jpeg, gif, tiff, psd. Limite: 50MB.</small>
+            </div>
+
             <button type="submit">🚀 Envoyer la requête</button>
+            <button type="button" id="uploadDirectBtn">📤 Envoyer en upload direct (Flask)</button>
             <button type="button" class="clear-btn" onclick="clearResponse()">🗑️ Effacer la réponse</button>
         </form>
 
@@ -197,6 +217,101 @@ https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800</textarea>
                     },
                     body: JSON.stringify(payload)
                 });
+
+        // Option A: envoi direct vers Flask avec upload de fichiers (multipart/form-data)
+        document.getElementById('uploadDirectBtn').addEventListener('click', async function() {
+            const responseDiv = document.getElementById('response');
+            const prompt = document.getElementById('promptInput').value.trim();
+            const subtitle = document.getElementById('subtitleInput').value.trim();
+            const textContent = document.getElementById('contenu').value;
+            const files = document.getElementById('imagesInput').files;
+
+            if (!prompt) {
+                responseDiv.innerHTML = '<div class="error"><strong>❌ Prompt requis</strong><br>Veuillez renseigner le champ "Prompt" pour l\'upload direct.</div>';
+                return;
+            }
+            if (!files || files.length === 0) {
+                responseDiv.innerHTML = '<div class="error"><strong>❌ Aucune image</strong><br>Sélectionnez au moins une image pour l\'upload direct.</div>';
+                return;
+            }
+
+            responseDiv.innerHTML = '<div class="info">🔍 Vérification du serveur Flask...</div>';
+
+            // Health check Flask
+            try {
+                const health = await fetch('http://localhost:5003/health', { method: 'GET' });
+                if (!health.ok) {
+                    const txt = await health.text();
+                    responseDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Flask non disponible (healthcheck)</strong><br>
+                            Code: ${health.status} ${health.statusText}<br>
+                            ${txt}<br><br>
+                            • Démarrez Flask: <code>python app.py</code> ou <code>./keep_flask_alive.sh</code>
+                        </div>`;
+                    return;
+                }
+            } catch (hcErr) {
+                responseDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Flask non joignable</strong><br>
+                        ${hcErr.message}<br><br>
+                        • Assurez-vous que Flask écoute sur <code>http://localhost:5003</code>
+                    </div>`;
+                return;
+            }
+
+            responseDiv.innerHTML = '<div class="info">⏳ Upload vers Flask /api/create-layout...</div>';
+
+            try {
+                const formData = new FormData();
+                formData.append('prompt', prompt);
+                formData.append('text_content', textContent);
+                if (subtitle) formData.append('subtitle', subtitle);
+                // template facultatif, laissé à "default"
+                for (const file of files) {
+                    formData.append('images', file);
+                }
+
+                const token = document.getElementById('apiTokenInput').value.trim();
+                const resp = await fetch('http://localhost:5003/api/create-layout', {
+                    method: 'POST',
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+                    body: formData
+                });
+
+                const txt = await resp.text();
+                let data;
+                try { data = JSON.parse(txt); } catch { data = txt; }
+
+                if (resp.ok) {
+                    responseDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Succès (Flask direct)!</strong><br>
+                            Status: ${resp.status} ${resp.statusText}<br><br>
+                            <strong>Réponse:</strong><br>
+                            ${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
+                        </div>
+                    `;
+                } else {
+                    responseDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Erreur (Flask direct)!</strong><br>
+                            Status: ${resp.status} ${resp.statusText}<br><br>
+                            <strong>Réponse:</strong><br>
+                            ${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}
+                        </div>
+                    `;
+                }
+            } catch (err) {
+                document.getElementById('response').innerHTML = `
+                    <div class="error">
+                        <strong>❌ Erreur de connexion (Flask direct)!</strong><br>
+                        ${err.message}
+                    </div>
+                `;
+            }
+        });
                 
                 const responseText = await response.text();
                 let responseData;
