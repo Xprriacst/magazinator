@@ -1,0 +1,193 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "options": {}
+      },
+      "id": "e89ecdb3-f58c-4e32-b2b2-8c222cf8b822",
+      "name": "🎯 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -448,
+        -112
+      ],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Structure n8n : inputData.json.body contient nos données\nconst webhookData = $input.item.json.body;\n\nconsole.log('🔍 DEBUG final:');\nconsole.log('Données webhook:', JSON.stringify(webhookData, null, 2));\nconsole.log('Type:', typeof webhookData);\nconsole.log('Clés:', webhookData ? Object.keys(webhookData) : 'null/undefined');\n\n// Configuration Flask\nconst flaskConfig = {\n  ip: '192.168.1.15',\n  port: 5003,\n  url: 'http://192.168.1.15:5003'\n};\n\n// Validation\nif (!webhookData || typeof webhookData !== 'object') {\n  throw new Error('webhookData invalide: ' + JSON.stringify(webhookData));\n}\n\nif (!webhookData.contenu) {\n  throw new Error('Champ \"contenu\" manquant. Clés disponibles: ' + Object.keys(webhookData).join(', '));\n}\n\nif (!webhookData.image_urls) {\n  throw new Error('Champ \"image_urls\" manquant. Clés disponibles: ' + Object.keys(webhookData).join(', '));\n}\n\n// Traiter les URLs d'images\nlet imageUrls = [];\nif (typeof webhookData.image_urls === 'string') {\n  imageUrls = webhookData.image_urls.split(',').map(url => url.trim()).filter(url => url);\n} else if (Array.isArray(webhookData.image_urls)) {\n  imageUrls = webhookData.image_urls.filter(url => url && url.trim());\n}\n\nconsole.log('✅ SUCCESS!');\nconsole.log('Contenu:', webhookData.contenu.substring(0, 50) + '...');\nconsole.log('Images:', imageUrls.length, imageUrls);\n\nreturn {\n  json: {\n    contenu: webhookData.contenu,\n    image_urls: imageUrls,\n    flask_config: flaskConfig,\n    dynamic_urls: {\n      create_layout: flaskConfig.url + '/api/create-layout-urls',\n      download_base: flaskConfig.url + '/api/download/'\n    }\n  }\n};"
+      },
+      "id": "f4988440-21e8-4470-92f7-89a4d70bfdfd",
+      "name": "🌐 Détecteur Simple",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -288,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en analyse de contenu éditorial. Analyse le texte fourni et identifie le titre principal, le sous-titre, et le corps de l'article. Si il n'y a pas de titre clair, génère un titre pertinent basé sur le contenu. Si il n'y a pas de sous-titre, génère un sous-titre accrocheur. Réponds UNIQUEMENT avec un JSON valide: {\"title\": \"titre extrait ou généré\", \"subtitle\": \"sous-titre extrait ou généré\", \"body\": \"corps de l'article\"}",
+              "role": "system"
+            },
+            {
+              "content": "={{ \"Contenu à analyser: \" + $input.item.json.contenu }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -144,
+        -208
+      ],
+      "id": "d5ad388a-8384-41ee-b5c5-7506d082f400",
+      "name": "🤖 Analyse OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug robuste pour comprendre la réponse OpenAI\nconst aiData = $input.item;\nconst webhookData = $node[\"🌐 Détecteur Simple\"].json;\n\nconsole.log('🤖 DEBUG IA - Structure complète:', JSON.stringify(aiData, null, 2));\nconsole.log('🔧 Données webhook:', webhookData ? Object.keys(webhookData) : 'null');\n\n// Essayer différentes sources pour la réponse IA\nlet aiResponse = null;\nlet source = 'non trouvée';\n\nif (aiData.json) {\n  console.log('📋 Clés dans aiData.json:', Object.keys(aiData.json));\n  \n  if (aiData.json.text) {\n    aiResponse = aiData.json.text;\n    source = 'json.text';\n  } else if (aiData.json.output) {\n    aiResponse = aiData.json.output;\n    source = 'json.output';\n  } else if (aiData.json.response) {\n    aiResponse = aiData.json.response;\n    source = 'json.response';\n  } else if (aiData.json.message) {\n    aiResponse = aiData.json.message;\n    source = 'json.message';\n  } else if (aiData.json.content) {\n    aiResponse = aiData.json.content;\n    source = 'json.content';\n  }\n} else {\n  console.log('📋 Clés dans aiData:', Object.keys(aiData));\n}\n\nif (!aiResponse) {\n  // Essayer les propriétés directes\n  if (aiData.text) {\n    aiResponse = aiData.text;\n    source = 'text';\n  } else if (aiData.output) {\n    aiResponse = aiData.output;\n    source = 'output';\n  } else if (aiData.response) {\n    aiResponse = aiData.response;\n    source = 'response';\n  }\n}\n\nconsole.log('🤖 Réponse IA source:', source);\nconsole.log('🤖 Type de aiResponse:', typeof aiResponse);\nconsole.log('🤖 Réponse IA brute:', aiResponse);\n\n// Validation\nif (!webhookData) {\n  throw new Error('Aucune donnée du nœud Détecteur Simple');\n}\n\n// Continuer même sans réponse IA pour débugger\nif (!aiResponse) {\n  console.log('⚠️ Pas de réponse IA, utilisation de valeurs par défaut');\n  aiResponse = '{\"title\": \"Titre par défaut\", \"subtitle\": \"Sous-titre par défaut\", \"body\": \"Corps par défaut\"}';\n}\n\n// Parser la réponse JSON d'OpenAI de manière robuste\nlet analysis;\ntry {\n  if (typeof aiResponse === 'object' && aiResponse !== null) {\n    // Si c'est déjà un objet, l'utiliser directement\n    analysis = aiResponse;\n    console.log('✅ Réponse IA déjà un objet:', analysis);\n  } else if (typeof aiResponse === 'string') {\n    // Si c'est une string, la parser\n    const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n    analysis = JSON.parse(cleanResponse);\n    console.log('✅ Analyse IA parsée depuis string:', analysis);\n  } else {\n    // Conversion en string puis parsing\n    const stringResponse = String(aiResponse);\n    analysis = JSON.parse(stringResponse);\n    console.log('✅ Analyse IA parsée après conversion:', analysis);\n  }\n} catch (e) {\n  console.log('❌ Erreur parsing IA:', e.message);\n  console.log('❌ Données brutes:', aiResponse);\n  analysis = {\n    title: 'Titre générique',\n    subtitle: 'Sous-titre générique',\n    body: webhookData.contenu || 'Contenu générique'\n  };\n}\n\n// Validation de la structure analysis\nif (!analysis.title) analysis.title = 'Titre manquant';\nif (!analysis.subtitle) analysis.subtitle = 'Sous-titre manquant';\nif (!analysis.body) analysis.body = webhookData.contenu || 'Corps manquant';\n\n// Compter les images\nconst imageCount = webhookData.image_urls ? webhookData.image_urls.length : 0;\nconst imageUrls = webhookData.image_urls || [];\n\n// Sélectionner le template selon le nombre d'images\nlet template;\nif (imageCount === 1) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount >= 2) {\n  template = 'template-mag-simple-2-1808';\n} else {\n  template = 'template-mag-simple-1808';\n}\n\nconsole.log('📋 Template sélectionné: ' + template + ' (' + imageCount + ' images)');\nconsole.log('📋 Analyse finale:', analysis);\n\nreturn {\n  json: {\n    ai_analysis: {\n      title: analysis.title,\n      subtitle: analysis.subtitle,\n      body: analysis.body\n    },\n    template_selection: {\n      template: template,\n      image_count: imageCount,\n      reason: imageCount + ' image(s) détectée(s)'\n    },\n    image_data: {\n      urls: imageUrls,\n      count: imageCount\n    },\n    flask_config: webhookData.flask_config,\n    dynamic_urls: webhookData.dynamic_urls,\n    original_content: webhookData.contenu,\n    debug: {\n      ai_raw_response: aiResponse,\n      ai_source: source,\n      ai_type: typeof aiResponse,\n      ai_data_keys: aiData.json ? Object.keys(aiData.json) : Object.keys(aiData),\n      webhook_keys: webhookData ? Object.keys(webhookData) : []\n    }\n  }\n};"
+      },
+      "id": "1abf2543-1681-4a06-94d8-7204b6e1bb9f",
+      "name": "📋 Traitement Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"📋 Traitement Final\"].json.dynamic_urls.create_layout }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.title) }},\n  \"text_content\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.original_content) }},\n  \"template\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.template_selection.template) }},\n  \"ai_title\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.title) }},\n  \"ai_subtitle\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.subtitle) }},\n  \"ai_body\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.body) }},\n  \"image_urls\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.image_data.urls) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "0a579cba-fe67-4e93-802c-097355f2ff55",
+      "name": "🚀 Appel Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst processedData = $node[\"📋 Traitement Final\"].json;\n\nconsole.log('📊 Réponse Flask:', response);\nconsole.log('🎯 Configuration utilisée:', processedData.flask_config);\n\nif (response.success) {\n  return {\n    json: {\n      status: 'success',\n      message: '🎉 Document InDesign créé avec succès !',\n      details: {\n        flask_config: processedData.flask_config,\n        template_used: processedData.template_selection.template,\n        image_count: processedData.template_selection.image_count,\n        ai_analysis: {\n          title: processedData.ai_analysis.title,\n          subtitle: processedData.ai_analysis.subtitle,\n          body_preview: processedData.ai_analysis.body.substring(0, 100) + '...'\n        },\n        debug: {\n          used_url: processedData.dynamic_urls.create_layout,\n          ai_source: processedData.debug.ai_source,\n          ai_type: processedData.debug.ai_type\n        }\n      },\n      project_id: response.project_id,\n      download_url: processedData.dynamic_urls.download_base + response.project_id\n    }\n  };\n} else {\n  return {\n    json: {\n      status: 'error',\n      message: '❌ Erreur: ' + (response.error || 'Erreur inconnue'),\n      debug: {\n        flask_response: response,\n        flask_config: processedData.flask_config,\n        used_url: processedData.dynamic_urls.create_layout,\n        ai_debug: processedData.debug\n      }\n    }\n  };\n}"
+      },
+      "id": "807c0325-69cf-4663-9d48-0671c63f1c43",
+      "name": "✅ Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -112
+      ]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "🌐 Détecteur Simple",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 Détecteur Simple": {
+      "main": [
+        [
+          {
+            "node": "🤖 Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "📋 Traitement Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Traitement Final": {
+      "main": [
+        [
+          {
+            "node": "🚀 Appel Flask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 Appel Flask": {
+      "main": [
+        [
+          {
+            "node": "✅ Résultat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0c58a494b180993f365db360a01c1bc7b6bc47cc008c314ce86d0993e2b71cb"
+  }
+}
