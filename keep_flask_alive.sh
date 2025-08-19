@@ -1,23 +1,29 @@
 #!/bin/bash
-# Script pour maintenir Flask en vie automatiquement
+# Script pour maintenir Flask (port 5003) en vie automatiquement
+
+set -e
 
 PROJECT_DIR="/Users/alexandreerrasti/Library/Mobile Documents/com~apple~CloudDocs/Indesign automation"
+PORT=5003
+LOG_FILE="$PROJECT_DIR/flask.log"
 
-echo "🔄 Maintien de Flask en vie..."
+echo "🔄 Maintien de Flask en vie (port $PORT)..."
 
 while true; do
-    # Vérifier si Flask tourne sur le port 5002
-    if ! lsof -i :5002 > /dev/null 2>&1; then
-        echo "❌ Flask arrêté, redémarrage..."
-        cd "$PROJECT_DIR"
-        source venv/bin/activate
-        nohup python app.py > flask.log 2>&1 &
-        echo "✅ Flask redémarré (PID: $!)"
-        sleep 5
-    else
-        echo "✅ Flask actif $(date)"
+  if ! lsof -i :$PORT > /dev/null 2>&1; then
+    echo "❌ Flask arrêté, redémarrage..."
+    cd "$PROJECT_DIR"
+    # Activer venv si présent
+    if [ -f "venv/bin/activate" ]; then
+      # shellcheck disable=SC1091
+      source venv/bin/activate
     fi
-    
-    # Vérifier toutes les 30 secondes
-    sleep 30
+    # Démarrage en arrière-plan
+    nohup python app.py > "$LOG_FILE" 2>&1 &
+    echo "✅ Flask redémarré (PID: $!)"
+    sleep 5
+  else
+    echo "✅ Flask actif $(date)"
+  fi
+  sleep 30
 done

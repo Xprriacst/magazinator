@@ -157,9 +157,36 @@ https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800</textarea>
             };
             
             const responseDiv = document.getElementById('response');
-            responseDiv.innerHTML = '<div class="info">⏳ Envoi de la requête en cours...</div>';
+            responseDiv.innerHTML = '<div class="info">🔍 Vérification du serveur Flask...</div>';
             
             try {
+                // Health check Flask avant envoi vers n8n
+                try {
+                    const health = await fetch('http://localhost:5003/health', { method: 'GET' });
+                    if (!health.ok) {
+                        const txt = await health.text();
+                        responseDiv.innerHTML = `
+                            <div class="error">
+                                <strong>❌ Flask non disponible (healthcheck)</strong><br>
+                                Code: ${health.status} ${health.statusText}<br>
+                                ${txt}<br><br>
+                                • Démarrez Flask: <code>python app.py</code> ou <code>./keep_flask_alive.sh</code><br>
+                                • Ou chargez le LaunchAgent macOS (voir README section launchd)
+                            </div>`;
+                        return;
+                    }
+                } catch (hcErr) {
+                    responseDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Flask non joignable</strong><br>
+                            ${hcErr.message}<br><br>
+                            • Assurez-vous que Flask écoute sur <code>http://localhost:5003</code><br>
+                            • Démarrer: <code>python app.py</code> ou <code>nohup ./keep_flask_alive.sh &</code>
+                        </div>`;
+                    return;
+                }
+
+                responseDiv.innerHTML = '<div class="info">⏳ Envoi de la requête au webhook n8n...</div>';
                 console.log('Envoi vers:', webhookUrl);
                 console.log('Payload:', payload);
                 

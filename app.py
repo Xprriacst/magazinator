@@ -27,6 +27,14 @@ for folder in [app.config['UPLOAD_FOLDER'], app.config['TEMPLATES_FOLDER'], app.
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'tiff', 'psd'}
 
+# CORS simple pour autoriser les appels depuis la page HTML locale (origin null)
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -491,6 +499,18 @@ def get_config():
         'status': 'running',
         'port': 5003
     })
+
+# Endpoint de santé simple
+@app.route('/health')
+def health():
+    try:
+        return jsonify({
+            'status': 'ok',
+            'service': 'magazinator-flask',
+            'port': 5003
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5003)

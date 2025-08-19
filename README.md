@@ -147,6 +147,28 @@ indesign-automation/
 - Optimisez la taille des images avant upload
 - Fermez les autres applications gourmandes
 
+## ⚡ Quick Test (Webhook n8n + Flask)
+
+1. **Démarrer Flask (port 5003)**
+   ```bash
+   # Dans le projet
+   python app.py  # ou ./start_server.sh si présent
+   # Santé: http://localhost:5003/health
+   ```
+
+2. **Lancer n8n (Docker) et importer le workflow** `n8n-workflow-webhook-final.json`
+   - Les appels Flask dans n8n utilisent `http://host.docker.internal:5003` (accès host depuis le conteneur)
+
+3. **Tester via la page** `test_webhook.html`
+   - Renseigner l'URL: `http://localhost:5678/webhook/indesign-webhook`
+   - Saisir contenu + images, puis envoyer
+
+4. **Vérifier**
+   - Réponse n8n visible dans la page
+   - Logs Flask dans `flask.log` (si démarré en arrière-plan)
+
+Astuce: si le conteneur n8n ne joint pas Flask, remplacer `127.0.0.1`/`localhost` par `host.docker.internal` côté n8n.
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! Pour contribuer:
