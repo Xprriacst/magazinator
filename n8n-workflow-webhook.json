@@ -1,0 +1,173 @@
+{
+  "name": "InDesign Webhook + URL Dynamique",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "indesign-webhook",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "🎯 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 0],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Détection IP simplifiée (sans modules interdits)\nconst webhookData = $input.item.json;\n\n// IP par défaut ou depuis les headers\nconst possibleIPs = [\n  '192.168.1.15',\n  '192.168.1.59', \n  '127.0.0.1'\n];\n\n// Port par défaut\nconst flaskPort = 5003;\n\n// Construire l'URL dynamiquement\nconst flaskIP = possibleIPs[0]; // Premier IP de la liste\nconst flaskConfig = {\n  ip: flaskIP,\n  port: flaskPort,\n  url: `http://${flaskIP}:${flaskPort}`\n};\n\nconsole.log('🌐 Configuration Flask détectée:', flaskConfig);\nconsole.log('📥 Données webhook reçues:', Object.keys(webhookData));\n\n// Valider les données requises\nconst requiredFields = ['contenu', 'image_urls'];\nconst missingFields = requiredFields.filter(field => !webhookData[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Champs manquants: ${missingFields.join(', ')}`);\n}\n\n// Traiter les URLs d'images\nlet imageUrls = [];\nif (typeof webhookData.image_urls === 'string') {\n  imageUrls = webhookData.image_urls.split(',').map(url => url.trim()).filter(url => url);\n} else if (Array.isArray(webhookData.image_urls)) {\n  imageUrls = webhookData.image_urls.filter(url => url && url.trim());\n}\n\nconsole.log(`📸 ${imageUrls.length} images détectées:`, imageUrls);\n\nreturn {\n  json: {\n    contenu: webhookData.contenu,\n    image_urls: imageUrls,\n    flask_config: flaskConfig,\n    dynamic_urls: {\n      create_layout: `${flaskConfig.url}/api/create-layout-urls`,\n      download_base: `${flaskConfig.url}/api/download/`\n    },\n    webhook_data: webhookData\n  }\n};"
+      },
+      "id": "ip-detector-simple",
+      "name": "🌐 Détecteur Simple",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-50, 0]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en analyse de contenu éditorial. Analyse le texte fourni et identifie le titre principal, le sous-titre, et le corps de l'article. Si il n'y a pas de titre clair, génère un titre pertinent basé sur le contenu. Si il n'y a pas de sous-titre, génère un sous-titre accrocheur. Réponds UNIQUEMENT avec un JSON valide: {\"title\": \"titre extrait ou généré\", \"subtitle\": \"sous-titre extrait ou généré\", \"body\": \"corps de l'article\"}",
+              "role": "system"
+            },
+            {
+              "content": "={{ \"Contenu à analyser: \" + $input.item.json.contenu }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1000,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [100, -100],
+      "id": "openai-analyzer",
+      "name": "🤖 Analyse OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traitement final : combiner IA + Webhook + Config Flask\nconst aiResponse = $input.item.json.text;\nconst webhookData = $node[\"🌐 Détecteur Simple\"].json;\n\nconsole.log('🔧 Configuration Flask:', webhookData.flask_config);\nconsole.log('🤖 Réponse IA brute:', aiResponse);\n\n// Parser la réponse JSON d'OpenAI\nlet analysis;\ntry {\n  const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n  analysis = JSON.parse(cleanResponse);\n  console.log('✅ Analyse IA parsée:', analysis);\n} catch (e) {\n  console.log('❌ Erreur parsing IA:', e.message);\n  analysis = {\n    title: 'Titre générique',\n    subtitle: 'Sous-titre générique',\n    body: webhookData.contenu\n  };\n}\n\n// Compter les images\nconst imageCount = webhookData.image_urls.length;\nconst imageUrls = webhookData.image_urls;\n\n// Sélectionner le template selon le nombre d'images\nlet template;\nif (imageCount === 1) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount >= 2) {\n  template = 'template-mag-simple-2-1808';\n} else {\n  template = 'template-mag-simple-1808';\n}\n\nconsole.log(`📋 Template sélectionné: ${template} (${imageCount} images)`);\n\nreturn {\n  json: {\n    ai_analysis: {\n      title: analysis.title,\n      subtitle: analysis.subtitle,\n      body: analysis.body\n    },\n    template_selection: {\n      template: template,\n      image_count: imageCount,\n      reason: `${imageCount} image(s) détectée(s)`\n    },\n    image_data: {\n      urls: imageUrls,\n      count: imageCount\n    },\n    flask_config: webhookData.flask_config,\n    dynamic_urls: webhookData.dynamic_urls,\n    original_content: webhookData.contenu,\n    debug: {\n      ai_raw_response: aiResponse,\n      webhook_received: Object.keys(webhookData.webhook_data)\n    }\n  }\n};"
+      },
+      "id": "final-processor",\n      "name": "📋 Traitement Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $node[\"📋 Traitement Final\"].json.dynamic_urls.create_layout }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.title) }},\n  \"text_content\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.original_content) }},\n  \"template\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.template_selection.template) }},\n  \"ai_title\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.title) }},\n  \"ai_subtitle\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.subtitle) }},\n  \"ai_body\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.ai_analysis.body) }},\n  \"image_urls\": {{ JSON.stringify($node[\"📋 Traitement Final\"].json.image_data.urls) }}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "indesign-request",
+      "name": "🚀 Appel Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst processedData = $node[\"📋 Traitement Final\"].json;\n\nconsole.log('📊 Réponse Flask:', response);\nconsole.log('🎯 Configuration utilisée:', processedData.flask_config);\n\nif (response.success) {\n  return {\n    json: {\n      status: 'success',\n      message: '🎉 Document InDesign créé avec succès !',\n      details: {\n        flask_config: processedData.flask_config,\n        template_used: processedData.template_selection.template,\n        image_count: processedData.template_selection.image_count,\n        ai_analysis: {\n          title: processedData.ai_analysis.title,\n          subtitle: processedData.ai_analysis.subtitle,\n          body_preview: processedData.ai_analysis.body.substring(0, 100) + '...'\n        },\n        debug: {\n          used_url: processedData.dynamic_urls.create_layout,\n          ai_raw: processedData.debug.ai_raw_response\n        }\n      },\n      project_id: response.project_id,\n      download_url: `${processedData.dynamic_urls.download_base}${response.project_id}`\n    }\n  };\n} else {\n  return {\n    json: {\n      status: 'error',\n      message: '❌ Erreur: ' + (response.error || 'Erreur inconnue'),\n      debug: {\n        flask_response: response,\n        flask_config: processedData.flask_config,\n        used_url: processedData.dynamic_urls.create_layout\n      }\n    }\n  };\n}"
+      },
+      "id": "result-formatter",
+      "name": "✅ Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [550, 0]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "🌐 Détecteur Simple",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 Détecteur Simple": {
+      "main": [
+        [
+          {
+            "node": "🤖 Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "📋 Traitement Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Traitement Final": {
+      "main": [
+        [
+          {
+            "node": "🚀 Appel Flask",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 Appel Flask": {
+      "main": [
+        [
+          {
+            "node": "✅ Résultat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
