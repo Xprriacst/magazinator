@@ -1,0 +1,158 @@
+{
+  "name": "InDesign Automation - Structure OpenAI Fixée",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-node",
+      "name": "🎯 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 0],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📊 COLLECTEUR - Accès correct aux données webhook\nconst webhookData = $input.item.json.body;\n\nconsole.log('📊 COLLECTEUR:');\nconsole.log('- Contenu extrait:', !!webhookData?.contenu);\nconsole.log('- Taille:', webhookData?.contenu?.length);\n\nif (!webhookData?.contenu) {\n  throw new Error('Contenu manquant: ' + JSON.stringify($input.item.json));\n}\n\nreturn {\n  json: {\n    contenu_original: webhookData.contenu,\n    subtitle_original: webhookData.subtitle || '',\n    collecteur_status: 'webhook_extracted',\n    timestamp: new Date().toISOString()\n  },\n  binary: $input.item.binary || {}\n};"
+      },
+      "id": "collector-node",
+      "name": "📊 Collecteur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en création de contenu éditorial. À partir du texte fourni, génère un JSON avec :\n- title: titre accrocheur (max 60 caractères)\n- subtitle: sous-titre informatif (max 80 caractères) \n- body: corps de texte structuré et engageant\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.contenu_original }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "openai-node",
+      "name": "🤖 OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [400, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 FUSION - STRUCTURE OPENAI CORRIGÉE\nconst allInputs = $input.all();\nconsole.log('🔗 FUSION - Analyse inputs:', allInputs.length);\n\n// Identifier les données par signature\nlet collectorData = null;\nlet openAIData = null;\n\nallInputs.forEach((input, index) => {\n  console.log(`Input ${index}:`, {\n    hasJson: !!input.json,\n    isCollector: !!(input.json?.collecteur_status),\n    hasMessage: !!(input.json?.message),\n    hasIndex: !!(input.json?.index !== undefined),\n    keys: input.json ? Object.keys(input.json) : []\n  });\n  \n  // Collecteur = a collecteur_status\n  if (input.json?.collecteur_status === 'webhook_extracted') {\n    collectorData = input;\n    console.log('✅ COLLECTEUR IDENTIFIÉ');\n  }\n  \n  // OpenAI = structure avec message + index + finish_reason\n  if (input.json?.message && input.json?.index !== undefined && input.json?.finish_reason) {\n    openAIData = input;\n    console.log('✅ OPENAI IDENTIFIÉ - nouvelle structure');\n  }\n});\n\n// Validation\nif (!collectorData) {\n  throw new Error('Données collecteur manquantes');\n}\n\nif (!openAIData) {\n  throw new Error('Données OpenAI manquantes - structure: ' + JSON.stringify(allInputs.map(i => i.json ? Object.keys(i.json) : 'no json')));\n}\n\n// Parse OpenAI - NOUVELLE STRUCTURE\nlet aiTitle = 'Titre par défaut';\nlet aiSubtitle = 'Sous-titre par défaut';\nlet aiBody = collectorData.json.contenu_original;\n\n// Accès direct à message.content (pas d'array)\nconst aiResponse = openAIData.json.message?.content;\nif (aiResponse) {\n  console.log('🤖 AI RESPONSE:', aiResponse.substring(0, 200));\n  \n  try {\n    const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n    const analysis = JSON.parse(cleanResponse);\n    \n    aiTitle = analysis.title || aiTitle;\n    aiSubtitle = analysis.subtitle || aiSubtitle;\n    aiBody = analysis.body || aiBody;\n    \n    console.log('✅ AI PARSING SUCCESS:', { title: aiTitle, subtitle: aiSubtitle });\n  } catch (e) {\n    console.log('❌ AI PARSING FAILED:', e.message);\n    console.log('Raw response was:', aiResponse);\n  }\n} else {\n  console.log('❌ Pas de message.content dans OpenAI data');\n}\n\n// Résultat final\nconst result = {\n  json: {\n    // Données originales\n    contenu_original: collectorData.json.contenu_original,\n    subtitle_original: collectorData.json.subtitle_original,\n    \n    // Données IA\n    ai_title: aiTitle,\n    ai_subtitle: aiSubtitle,\n    ai_body: aiBody,\n    \n    // Debug\n    debug: {\n      inputs_count: allInputs.length,\n      collector_found: !!collectorData,\n      openai_found: !!openAIData,\n      openai_structure: openAIData ? Object.keys(openAIData.json) : [],\n      ai_parsing_success: aiTitle !== 'Titre par défaut',\n      binary_preserved: !!(collectorData.binary && Object.keys(collectorData.binary).length > 0),\n      binary_count: collectorData.binary ? Object.keys(collectorData.binary).length : 0\n    }\n  },\n  binary: collectorData.binary || {}\n};\n\nconsole.log('🎯 FUSION RESULT:');\nconsole.log('- AI Title:', result.json.ai_title);\nconsole.log('- AI Subtitle:', result.json.ai_subtitle);\nconsole.log('- Binary count:', result.json.debug.binary_count);\n\nreturn result;"
+      },
+      "id": "fusion-node",
+      "name": "🔗 Fusion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5003/api/create-layout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.ai_title }}"
+            },
+            {
+              "name": "text_content",
+              "value": "={{ $json.ai_body }}"
+            },
+            {
+              "name": "subtitle",
+              "value": "={{ $json.ai_subtitle }}"
+            },
+            {
+              "name": "template",
+              "value": "default"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "images",
+              "inputDataFieldName": "images"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "flask-node",
+      "name": "🚀 Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ RÉSULTAT FINAL\nconst flaskResponse = $input.item.json;\nconst fusionData = $input.first();\n\nif (flaskResponse?.success) {\n  return {\n    json: {\n      status: 'success',\n      message: '🎉 Document créé avec IA + images !',\n      project_id: flaskResponse.project_id,\n      download_url: `http://host.docker.internal:5003/api/download/${flaskResponse.project_id}`,\n      \n      ai_content: {\n        title: fusionData?.json?.ai_title,\n        subtitle: fusionData?.json?.ai_subtitle,\n        body_preview: fusionData?.json?.ai_body?.substring(0, 150) + '...'\n      },\n      \n      technical: fusionData?.json?.debug\n    }\n  };\n}\n\nreturn {\n  json: {\n    status: 'error',\n    error: flaskResponse?.error || 'Erreur Flask',\n    debug: {\n      flask_response: flaskResponse,\n      fusion_debug: fusionData?.json?.debug\n    }\n  }\n};"
+      },
+      "id": "result-node",
+      "name": "✅ Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 100]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook": {
+      "main": [[
+        { "node": "📊 Collecteur", "type": "main", "index": 0 },
+        { "node": "🤖 OpenAI", "type": "main", "index": 0 }
+      ]]
+    },
+    "📊 Collecteur": {
+      "main": [[
+        { "node": "🔗 Fusion", "type": "main", "index": 0 }
+      ]]
+    },
+    "🤖 OpenAI": {
+      "main": [[
+        { "node": "🔗 Fusion", "type": "main", "index": 0 }
+      ]]
+    },
+    "🔗 Fusion": {
+      "main": [[
+        { "node": "🚀 Flask", "type": "main", "index": 0 }
+      ]]
+    },
+    "🚀 Flask": {
+      "main": [[
+        { "node": "✅ Résultat", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

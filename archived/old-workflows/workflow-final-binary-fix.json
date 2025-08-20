@@ -1,0 +1,157 @@
+{
+  "name": "InDesign Automation - BINARY FIXED",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-node",
+      "name": "🎯 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 0],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📊 COLLECTEUR - Préserve tout avec debug binary\nconst webhookData = $input.item.json.body;\n\nif (!webhookData?.contenu) {\n  throw new Error('Contenu manquant');\n}\n\nconsole.log('📊 COLLECTEUR:');\nconsole.log('- Contenu:', webhookData.contenu.length, 'chars');\nconsole.log('- Binary input keys:', Object.keys($input.item.binary || {}));\n\n// Examiner la structure binary\nObject.keys($input.item.binary || {}).forEach(key => {\n  const binaryItem = $input.item.binary[key];\n  console.log(`📎 Binary [${key}]:`, {\n    exists: !!binaryItem,\n    hasData: !!(binaryItem?.data),\n    hasId: !!(binaryItem?.id),\n    type: binaryItem?.mimeType\n  });\n});\n\nreturn {\n  json: {\n    contenu_pour_openai: webhookData.contenu,\n    contenu_original: webhookData.contenu,\n    subtitle_original: webhookData.subtitle || ''\n  },\n  binary: $input.item.binary || {}\n};"
+      },
+      "id": "collector-node",
+      "name": "📊 Collecteur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en création de contenu éditorial. À partir du texte fourni, génère un JSON avec :\n- title: titre accrocheur (max 60 caractères)\n- subtitle: sous-titre informatif (max 80 caractères) \n- body: corps de texte structuré et engageant\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.contenu_pour_openai }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "openai-node",
+      "name": "🤖 OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [600, 0],
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 FUSION + RENOMMAGE BINARY\nconst openAIResult = $input.item;\nconst collectorData = $node[\"📊 Collecteur\"];\n\nconsole.log('🔗 FUSION BINARY FIX:');\n\n// Parse OpenAI\nlet aiTitle = 'Titre par défaut';\nlet aiSubtitle = 'Sous-titre par défaut';\nlet aiBody = 'Corps par défaut';\n\nconst aiResponse = openAIResult.json?.message?.content;\nif (aiResponse) {\n  try {\n    const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n    const analysis = JSON.parse(cleanResponse);\n    \n    aiTitle = analysis.title || aiTitle;\n    aiSubtitle = analysis.subtitle || aiSubtitle;\n    aiBody = analysis.body || aiBody;\n    \n    console.log('✅ IA PARSING SUCCESS:', aiTitle);\n  } catch (e) {\n    console.log('❌ IA PARSING FAILED:', e.message);\n  }\n}\n\n// RENOMMAGE BINARY pour Flask\nconst collectorBinary = collectorData?.binary || {};\nconst flaskBinary = {};\n\nconsole.log('📎 BINARY PROCESSING:');\nconsole.log('- Collector binary keys:', Object.keys(collectorBinary));\n\n// Renommer la première clé binary vers 'images'\nconst binaryKeys = Object.keys(collectorBinary);\nif (binaryKeys.length > 0) {\n  const firstKey = binaryKeys[0];\n  const binaryData = collectorBinary[firstKey];\n  \n  console.log('📎 Renommage:', firstKey, '→ images');\n  console.log('📎 Binary data valid:', !!(binaryData && (binaryData.data || binaryData.id)));\n  \n  flaskBinary.images = binaryData;\n} else {\n  console.log('⚠️ Aucune donnée binary trouvée');\n}\n\nreturn {\n  json: {\n    ai_title: aiTitle,\n    ai_subtitle: aiSubtitle,\n    ai_body: aiBody,\n    \n    debug: {\n      ai_parsing_success: aiTitle !== 'Titre par défaut',\n      binary_original_keys: Object.keys(collectorBinary),\n      binary_renamed_keys: Object.keys(flaskBinary),\n      binary_ready_for_flask: Object.keys(flaskBinary).length > 0\n    }\n  },\n  binary: flaskBinary\n};"
+      },
+      "id": "fusion-node",
+      "name": "🔗 Fusion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5003/api/create-layout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.ai_title }}"
+            },
+            {
+              "name": "text_content",
+              "value": "={{ $json.ai_body }}"
+            },
+            {
+              "name": "subtitle",
+              "value": "={{ $json.ai_subtitle }}"
+            },
+            {
+              "name": "template",
+              "value": "default"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "images",
+              "inputDataFieldName": "={{ Object.keys($binary).includes('images') ? 'images' : '' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "flask-node",
+      "name": "🚀 Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const flaskResponse = $input.item.json;\nconst fusionData = $input.first();\n\nif (flaskResponse?.success) {\n  return {\n    json: {\n      status: 'success',\n      message: '🎉 Document créé avec IA + images !',\n      project_id: flaskResponse.project_id,\n      download_url: `http://host.docker.internal:5003/api/download/${flaskResponse.project_id}`,\n      \n      ai_content: {\n        title: fusionData?.json?.ai_title,\n        subtitle: fusionData?.json?.ai_subtitle,\n        body_preview: fusionData?.json?.ai_body?.substring(0, 100) + '...'\n      },\n      \n      technical_details: {\n        ai_parsing_success: fusionData?.json?.debug?.ai_parsing_success,\n        binary_processed: fusionData?.json?.debug?.binary_ready_for_flask,\n        binary_keys_original: fusionData?.json?.debug?.binary_original_keys,\n        binary_keys_final: fusionData?.json?.debug?.binary_renamed_keys\n      }\n    }\n  };\n}\n\nreturn {\n  json: {\n    status: 'error',\n    error: flaskResponse?.error || 'Erreur Flask',\n    debug: {\n      flask_response: flaskResponse,\n      fusion_debug: fusionData?.json?.debug\n    }\n  }\n};"
+      },
+      "id": "result-node",
+      "name": "✅ Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 0]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook": {
+      "main": [[
+        { "node": "📊 Collecteur", "type": "main", "index": 0 }
+      ]]
+    },
+    "📊 Collecteur": {
+      "main": [[
+        { "node": "🤖 OpenAI", "type": "main", "index": 0 }
+      ]]
+    },
+    "🤖 OpenAI": {
+      "main": [[
+        { "node": "🔗 Fusion", "type": "main", "index": 0 }
+      ]]
+    },
+    "🔗 Fusion": {
+      "main": [[
+        { "node": "🚀 Flask", "type": "main", "index": 0 }
+      ]]
+    },
+    "🚀 Flask": {
+      "main": [[
+        { "node": "✅ Résultat", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

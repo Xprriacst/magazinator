@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Workflow n8n - Multipart Upload</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group { 
+            margin: 20px 0; 
+        }
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: bold;
+            color: #333;
+        }
+        input, textarea { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        textarea { 
+            height: 120px; 
+            resize: vertical;
+        }
+        button { 
+            background: #007cba; 
+            color: white; 
+            padding: 15px 30px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover { 
+            background: #005a87; 
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .file-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Workflow n8n - Upload Multipart</h1>
+        <p>Test du pipeline complet : <strong>Texte + Images → IA OpenAI → Flask → InDesign</strong></p>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label>Webhook URL:</label>
+                <input type="text" id="webhookUrl" value="http://localhost:5678/webhook/indesign-webhook" placeholder="URL du webhook n8n">
+            </div>
+            
+            <div class="form-group">
+                <label>Contenu à analyser par l'IA:</label>
+                <textarea id="contenu" placeholder="Tapez votre contenu ici. L'IA va générer un titre, sous-titre et optimiser le texte...">Les nouvelles tendances en design graphique révolutionnent l'industrie créative. Les designers explorent des techniques innovantes qui mélangent tradition et modernité. Cette évolution transforme notre façon de concevoir les supports visuels.</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Sous-titre (optionnel):</label>
+                <input type="text" id="subtitle" placeholder="Sous-titre qui sera analysé avec le contenu principal">
+            </div>
+            
+            <div class="form-group">
+                <label>Images (fichiers binaires):</label>
+                <input type="file" id="images" multiple accept="image/*">
+                <div id="fileInfo" class="file-info" style="display:none;"></div>
+            </div>
+            
+            <button type="submit">🚀 Tester le Workflow Complet</button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('testForm');
+        const result = document.getElementById('result');
+        const fileInput = document.getElementById('images');
+        const fileInfo = document.getElementById('fileInfo');
+        
+        // Affichage info fichiers
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                let info = `📁 ${this.files.length} fichier(s) sélectionné(s):\n`;
+                for (let i = 0; i < this.files.length; i++) {
+                    const file = this.files[i];
+                    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                    info += `• ${file.name} (${sizeMB} MB, ${file.type})\n`;
+                }
+                fileInfo.textContent = info;
+                fileInfo.style.display = 'block';
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        });
+        
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            const contenu = document.getElementById('contenu').value;
+            const subtitle = document.getElementById('subtitle').value;
+            const images = document.getElementById('images').files;
+            
+            if (!webhookUrl) {
+                showResult('❌ URL webhook requise', 'error');
+                return;
+            }
+            
+            if (!contenu) {
+                showResult('❌ Contenu requis pour l\'analyse IA', 'error');
+                return;
+            }
+            
+            // Création FormData multipart
+            const formData = new FormData();
+            formData.append('contenu', contenu);
+            if (subtitle) {
+                formData.append('subtitle', subtitle);
+            }
+            
+            // Ajout des images comme fichiers binaires
+            for (let i = 0; i < images.length; i++) {
+                formData.append('images', images[i]);
+            }
+            
+            const button = form.querySelector('button');
+            button.disabled = true;
+            button.textContent = '⏳ Test en cours...';
+            
+            showResult('🔄 Envoi vers n8n...\n📡 Webhook: ' + webhookUrl + '\n📝 Contenu: ' + contenu.substring(0, 100) + '...\n📷 Images: ' + images.length, 'info');
+            
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const responseText = await response.text();
+                let responseJson;
+                
+                try {
+                    responseJson = JSON.parse(responseText);
+                } catch {
+                    responseJson = { raw_response: responseText };
+                }
+                
+                if (response.ok) {
+                    let message = '✅ SUCCÈS - Workflow exécuté !\n\n';
+                    message += '📊 Réponse complète:\n' + JSON.stringify(responseJson, null, 2);
+                    
+                    if (responseJson.project_id) {
+                        message += '\n\n🎯 Projet créé: ' + responseJson.project_id;
+                        if (responseJson.download_url) {
+                            message += '\n📥 URL téléchargement: ' + responseJson.download_url;
+                        }
+                    }
+                    
+                    if (responseJson.ai_analysis) {
+                        message += '\n\n🤖 Analyse IA:';
+                        message += '\n• Titre: ' + responseJson.ai_analysis.title;
+                        message += '\n• Sous-titre: ' + responseJson.ai_analysis.subtitle;
+                    }
+                    
+                    showResult(message, 'success');
+                } else {
+                    showResult('❌ ERREUR HTTP ' + response.status + '\n\n' + JSON.stringify(responseJson, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult('❌ ERREUR RÉSEAU: ' + error.message, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = '🚀 Tester le Workflow Complet';
+            }
+        });
+        
+        function showResult(message, type) {
+            result.textContent = message;
+            result.className = type;
+            result.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

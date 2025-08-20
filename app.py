@@ -559,6 +559,11 @@ def serve_uploaded_file(filename):
     """Servir les fichiers uploadés"""
     return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
+@app.route('/test_hybrid_interface.html')
+def test_hybrid_interface():
+    """Interface de test pour l'endpoint hybride"""
+    return send_file('test_hybrid_interface.html')
+
 # Endpoint de santé simple
 @app.route('/health')
 def health():
