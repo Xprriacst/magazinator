@@ -30,7 +30,7 @@
         "messages": {
           "values": [
             {
-              "content": "Tu es un expert en création de contenu éditorial. À partir du texte fourni, génère un JSON avec :\n- title: titre accrocheur (max 60 caractères)\n- subtitle: sous-titre informatif (max 80 caractères) \n- body: corps de texte structuré et engageant\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.body.contenu || 'Contenu par défaut' }}"
+              "content": "Tu es un expert en analyse de contenu éditorial. À partir du texte fourni, EXTRAIS et structure les informations existantes :\n\n1. IDENTIFIE le titre principal (première phrase ou titre évident)\n2. EXTRAIS le sous-titre ou phrase d'accroche (deuxième élément important)\n3. CONSERVE le corps du texte en le structurant proprement\n\nSi certains éléments manquent, complète intelligemment à partir du contenu existant.\n\nStructure de réponse JSON OBLIGATOIRE :\n{\n  \"title\": \"[titre extrait ou première phrase significative - max 60 car]\",\n  \"subtitle\": \"[sous-titre extrait ou phrase d'accroche - max 80 car]\",\n  \"body\": \"[corps du texte structuré, paragraphes séparés par \\n\\n]\"\n}\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.body.contenu || 'Contenu par défaut' }}"
             }
           ]
         },

@@ -25,7 +25,7 @@ app.config['OUTPUT_FOLDER'] = 'output'
 for folder in [app.config['UPLOAD_FOLDER'], app.config['TEMPLATES_FOLDER'], app.config['OUTPUT_FOLDER']]:
     os.makedirs(folder, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'tiff', 'psd'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'tiff', 'psd'}  # SVG non supporté par InDesign
 
 # CORS simple pour autoriser les appels depuis la page HTML locale (origin null)
 @app.after_request
@@ -544,11 +544,19 @@ def upload_and_process():
         response = requests.post(webhook_url, json=webhook_data, timeout=120)
         
         if response.status_code == 200:
-            return response.json()
+            try:
+                return response.json()
+            except ValueError:
+                # Réponse vide ou non-JSON
+                return jsonify({
+                    'error': 'Réponse vide du workflow n8n',
+                    'details': 'Le workflow n8n a retourné une réponse vide'
+                }), 500
         else:
             return jsonify({
                 'error': 'Erreur du workflow n8n',
-                'details': response.text
+                'details': response.text,
+                'status_code': response.status_code
             }), response.status_code
             
     except Exception as e:

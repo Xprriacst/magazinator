@@ -4,7 +4,7 @@
 function parseSimpleJSON(jsonString) {
     // Parser JSON simple - extraction des valeurs clés
     try {
-        alert("🔍 Début parsing JSON...");
+        // alert("🔍 Début parsing JSON...");
         
         // Méthode simple : extraire juste les valeurs dont on a besoin
         var config = {};
@@ -13,14 +13,14 @@ function parseSimpleJSON(jsonString) {
         var projectMatch = jsonString.match(/"project_id":\s*"([^"]+)"/);
         if (projectMatch) {
             config.project_id = projectMatch[1];
-            alert("✅ Project ID trouvé: " + config.project_id);
+            // alert("✅ Project ID trouvé: " + config.project_id);
         }
         
         // Extraire prompt
         var promptMatch = jsonString.match(/"prompt":\s*"([^"]+)"/);
         if (promptMatch) {
             config.prompt = promptMatch[1];
-            alert("✅ Prompt trouvé: " + config.prompt);
+            // alert("✅ Prompt trouvé: " + config.prompt);
         }
         
         // Extraire text_content
@@ -38,7 +38,7 @@ function parseSimpleJSON(jsonString) {
         // Extraire rectangle_index
         var rectangleMatch = jsonString.match(/"rectangle_index":\s*"([^"]+)"/);
         config.rectangle_index = rectangleMatch ? parseInt(rectangleMatch[1]) : 0;
-        alert("🔍 Rectangle sélectionné: " + config.rectangle_index);
+        // alert("🔍 Rectangle sélectionné: " + config.rectangle_index);
         
         // Extraire images (chercher les chemins absolus)
         config.images = [];
@@ -49,21 +49,21 @@ function parseSimpleJSON(jsonString) {
                 var imagePath = imageMatches[i].substring(1, imageMatches[i].length - 1);
                 config.images.push(imagePath);
             }
-            alert("✅ Images trouvées: " + config.images.length);
+            // alert("✅ Images trouvées: " + config.images.length);
         }
         
-        alert("✅ Parsing terminé avec succès");
+        // alert("✅ Parsing terminé avec succès");
         return config;
         
     } catch (e) {
-        alert("❌ Erreur parsing JSON: " + e.toString());
+        // alert("❌ Erreur parsing JSON: " + e.toString());
         return null;
     }
 }
 
 function main() {
     try {
-        alert("🚀 Début du script InDesign");
+        // alert("🚀 Début du script InDesign");
         
         // Chemin de base fixe
         var basePath = "/Users/alexandreerrasti/Library/Mobile Documents/com~apple~CloudDocs/Indesign automation";
@@ -71,7 +71,7 @@ function main() {
         // Trouver le dernier projet
         var uploadsFolder = new Folder(basePath + "/uploads");
         if (!uploadsFolder.exists) {
-            alert("❌ Dossier uploads non trouvé");
+            // alert("❌ Dossier uploads non trouvé");
             return false;
         }
         
@@ -93,11 +93,11 @@ function main() {
         }
         
         if (!latestProject) {
-            alert("❌ Aucun projet trouvé");
+            // alert("❌ Aucun projet trouvé");
             return false;
         }
         
-        alert("✅ Projet trouvé: " + latestProject.name);
+        // alert("✅ Projet trouvé: " + latestProject.name);
         
         // Lire la config
         var configFile = new File(latestProject + "/config.json");
@@ -108,30 +108,30 @@ function main() {
         // Parser le JSON avec notre fonction
         var config = parseSimpleJSON(configData);
         if (!config) {
-            alert("❌ Erreur parsing config");
+            // alert("❌ Erreur parsing config");
             return false;
         }
         
-        alert("✅ Config parsée: " + config.project_id);
+        // alert("✅ Config parsée: " + config.project_id);
         
         // Ouvrir le template
         var templatePath = basePath + "/indesign_templates/template-mag-simple-1808.indt";
         var templateFile = new File(templatePath);
         
         if (!templateFile.exists) {
-            alert("❌ Template non trouvé: " + templatePath);
+            // alert("❌ Template non trouvé: " + templatePath);
             return false;
         }
         
-        alert("📄 Template trouvé, taille: " + templateFile.length + " bytes");
-        alert("📄 Tentative d'ouverture du template...");
+        // alert("📄 Template trouvé, taille: " + templateFile.length + " bytes");
+        // alert("📄 Tentative d'ouverture du template...");
         
         try {
             var doc = app.open(templateFile);
-            alert("✅ Template ouvert avec succès!");
-            alert("📄 Document pages: " + doc.pages.length);
+            // alert("✅ Template ouvert avec succès!");
+            // alert("📄 Document pages: " + doc.pages.length);
         } catch (openError) {
-            alert("❌ Erreur ouverture template: " + openError.toString());
+            // alert("❌ Erreur ouverture template: " + openError.toString());
             return false;
         }
         
@@ -142,7 +142,7 @@ function main() {
             
             // Détecter quel template on utilise depuis le nom du fichier
             var templateName = templateFile.name;
-            alert("🔍 Template détecté: " + templateName);
+            // alert("🔍 Template détecté: " + templateName);
             
             if (templateName.indexOf("template-mag-simple-1808") !== -1) {
                 // Template 1: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
@@ -151,7 +151,7 @@ function main() {
                 app.findTextPreferences.findWhat = "{{TITRE}}";
                 app.changeTextPreferences.changeTo = config.prompt || "Nouveau titre";
                 var foundTitre = doc.changeText();
-                alert("✅ {{TITRE}} remplacé: " + foundTitre.length + " occurrence(s)");
+                // alert("✅ {{TITRE}} remplacé: " + foundTitre.length + " occurrence(s)");
                 
                 app.findTextPreferences = NothingEnum.NOTHING;
                 app.changeTextPreferences = NothingEnum.NOTHING;
@@ -161,7 +161,7 @@ function main() {
                 var subtitleText = config.subtitle || "Sous-titre par défaut";
                 app.changeTextPreferences.changeTo = subtitleText;
                 var foundSousTitre = doc.changeText();
-                alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
+                // alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
                 
                 app.findTextPreferences = NothingEnum.NOTHING;
                 app.changeTextPreferences = NothingEnum.NOTHING;
@@ -170,7 +170,7 @@ function main() {
                 app.findTextPreferences.findWhat = "{{ARTICLE}}";
                 app.changeTextPreferences.changeTo = config.text_content || "Contenu de l'article";
                 var foundArticle = doc.changeText();
-                alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
+                // alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
                 
             } else if (templateName.indexOf("template-mag-simple-2-1808") !== -1) {
                 // Template 2: seulement {{ARTICLE}}
@@ -182,11 +182,11 @@ function main() {
                 }
                 app.changeTextPreferences.changeTo = fullText;
                 var foundArticle = doc.changeText();
-                alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
+                // alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
                 
             } else {
                 // Template non reconnu, essayer l'ancienne méthode
-                alert("⚠️ Template non reconnu, utilisation méthode par défaut");
+                // alert("⚠️ Template non reconnu, utilisation méthode par défaut");
                 app.findTextPreferences.findWhat = "TEXTE";
                 var defaultText = config.prompt || "Nouveau titre";
                 if (config.text_content) {
@@ -200,11 +200,11 @@ function main() {
             app.changeTextPreferences = NothingEnum.NOTHING;
             
         } catch (textError) {
-            alert("⚠️ Erreur texte: " + textError.toString());
+            // alert("⚠️ Erreur texte: " + textError.toString());
         }
         
         // Debug: vérifier qu'on arrive à la partie image
-        alert("🔍 DEBUT section image - Images config: " + (config.images ? config.images.length : 0));
+        // alert("🔍 DEBUT section image - Images config: " + (config.images ? config.images.length : 0));
         
         // Placer l'image (si elle existe)
         if (config.images && config.images.length > 0) {
@@ -229,18 +229,18 @@ function main() {
                             rectangle.place(imageFile);
                             rectangle.fit(FitOptions.CONTENT_TO_FRAME);
                             rectangle.fit(FitOptions.CENTER_CONTENT);
-                            alert("✅ Image placée dans rectangle " + rectangleIndex);
+                            // alert("✅ Image placée dans rectangle " + rectangleIndex);
                         } else {
-                            alert("❌ Rectangle " + rectangleIndex + " n'existe pas");
+                            // alert("❌ Rectangle " + rectangleIndex + " n'existe pas");
                         }
                     } else {
-                        alert("⚠️ Pas de rectangle pour l'image");
+                        // alert("⚠️ Pas de rectangle pour l'image");
                     }
                 } else {
-                    alert("⚠️ Image non trouvée: " + config.images[0]);
+                    // alert("⚠️ Image non trouvée: " + config.images[0]);
                 }
             } catch (imageError) {
-                alert("⚠️ Erreur image: " + imageError.toString());
+                // alert("⚠️ Erreur image: " + imageError.toString());
             }
         }
         
@@ -255,17 +255,17 @@ function main() {
             doc.save(outputFile);
             doc.close();
             
-            alert("🎉 SUCCÈS! Document créé: " + config.project_id + ".indd");
+            // alert("🎉 SUCCÈS! Document créé: " + config.project_id + ".indd");
             return true;
             
         } catch (saveError) {
-            alert("❌ Erreur sauvegarde: " + saveError.toString());
+            // alert("❌ Erreur sauvegarde: " + saveError.toString());
             try { doc.close(); } catch(e) {}
             return false;
         }
         
     } catch (error) {
-        alert("❌ ERREUR GÉNÉRALE: " + error.toString());
+        // alert("❌ ERREUR GÉNÉRALE: " + error.toString());
         return false;
     }
 }

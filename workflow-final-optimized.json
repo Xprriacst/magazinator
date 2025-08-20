@@ -1,0 +1,317 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e93ee21f-fc59-4505-b9f7-f2623cec29e7",
+      "name": "🎯 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        256
+      ],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "content": "# 📝 Workflow InDesign Template Filler\n\n## Données attendues du webhook:\n```json\n{\n  \"contenu\": \"Article complet...\",\n  \"image_urls\": \"url1,url2,url3\" // ou [\"url1\", \"url2\"]\n}\n```\n\n## Templates disponibles:\n- `template-mag-simple-1808` : 1 image\n- `template-mag-simple-2-1808` : 2+ images\n\n## Configuration Flask:\n- URL: `http://host.docker.internal:5003`\n- Token: `Bearer alexandreesttropbeau`\n- Timeout: 120 secondes\n\n## Flux:\n1. Webhook reçoit contenu + URLs images\n2. OpenAI analyse et structure le texte\n3. Sélection template selon nb images\n4. Envoi à Flask avec JSON unifié\n5. Retour URL de téléchargement",
+        "height": 400,
+        "width": 350
+      },
+      "id": "da64c87c-5aac-49f7-9ece-94b35429a8aa",
+      "name": "📋 Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validation et préparation des données webhook\nconst webhookData = $input.item.json.body || $input.item.json;\n\nconsole.log('🔍 Données reçues:', JSON.stringify(webhookData, null, 2));\n\n// Validation des champs requis\nif (!webhookData || typeof webhookData !== 'object') {\n  throw new Error('Données webhook invalides');\n}\n\nif (!webhookData.contenu) {\n  throw new Error('Champ \"contenu\" manquant');\n}\n\n// Traitement des URLs d'images\nlet imageUrls = [];\nif (webhookData.image_urls) {\n  if (typeof webhookData.image_urls === 'string') {\n    // Format string CSV\n    imageUrls = webhookData.image_urls\n      .split(',')\n      .map(url => url.trim())\n      .filter(url => url && url.startsWith('http'));\n  } else if (Array.isArray(webhookData.image_urls)) {\n    // Format array\n    imageUrls = webhookData.image_urls\n      .filter(url => url && typeof url === 'string' && url.startsWith('http'));\n  }\n}\n\nconsole.log(`✅ ${imageUrls.length} image(s) détectée(s)`);\n\nreturn {\n  json: {\n    contenu: webhookData.contenu,\n    image_urls: imageUrls,\n    image_count: imageUrls.length,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "65e563ef-5f2c-4625-9dcc-825ae3d584ab",
+      "name": "🔍 Validation Données",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -688,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en analyse de contenu éditorial. À partir du texte fourni, EXTRAIS et structure les informations existantes :\n\n1. IDENTIFIE le titre principal (première phrase ou titre évident)\n2. EXTRAIS le sous-titre ou phrase d'accroche (deuxième élément important)  \n3. CONSERVE le corps du texte en le structurant proprement\n\nSi certains éléments manquent, complète intelligemment à partir du contenu existant.\n\nStructure de réponse JSON OBLIGATOIRE :\n{\n  \"title\": \"[titre extrait ou première phrase significative - max 60 car]\",\n  \"subtitle\": \"[sous-titre extrait ou phrase d'accroche - max 80 car]\",\n  \"body\": \"[corps du texte structuré, paragraphes séparés par \\n\\n]\"\n}\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.body.contenu || 'Contenu par défaut' }}",
+              "role": "system"
+            },
+            {
+              "content": "={{ $json.contenu }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 1500,
+          "temperature": 0.3
+        }
+      },
+      "id": "1d82c49f-d246-40ca-a388-ec74f07b9da6",
+      "name": "🤖 Analyse OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -688,
+        32
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fusion et préparation finale pour Flask\nconst validationData = $node[\"🔍 Validation Données\"].json;\nconst aiResponse = $input.item.json;\n\nconsole.log('🤖 Réponse OpenAI brute:', JSON.stringify(aiResponse, null, 2));\n\n// Extraction de l'analyse IA selon le format de réponse\nlet aiAnalysis = {\n  title: \"Titre par défaut\",\n  subtitle: \"Sous-titre par défaut\",\n  body: validationData.contenu\n};\n\ntry {\n  let aiContent = null;\n  \n  // Gestion des différents formats de réponse OpenAI\n  if (typeof aiResponse === 'string') {\n    aiContent = aiResponse;\n  } else if (Array.isArray(aiResponse) && aiResponse[0]?.message?.content) {\n    aiContent = aiResponse[0].message.content;\n  } else if (aiResponse?.message?.content) {\n    aiContent = aiResponse.message.content;\n  } else if (aiResponse?.content) {\n    aiContent = aiResponse.content;\n  }\n  \n  if (aiContent) {\n    // Nettoyage et parsing\n    const cleanJson = aiContent\n      .replace(/```json\\n?|```\\n?/g, '')\n      .trim();\n    \n    const parsed = JSON.parse(cleanJson);\n    \n    if (parsed.title) aiAnalysis.title = parsed.title;\n    if (parsed.subtitle) aiAnalysis.subtitle = parsed.subtitle;\n    if (parsed.body) aiAnalysis.body = parsed.body;\n    \n    console.log('✅ Analyse IA extraite avec succès');\n  }\n} catch (error) {\n  console.log('⚠️ Fallback sur valeurs par défaut:', error.message);\n}\n\n// Sélection du template selon le nombre d'images\nconst imageCount = validationData.image_count;\nlet template = 'template-mag-simple-1808'; // Par défaut\n\nif (imageCount === 0) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount === 1) {\n  template = 'template-mag-simple-1808';\n} else if (imageCount >= 2) {\n  template = 'template-mag-simple-2-1808';\n}\n\nconsole.log(`📋 Template sélectionné: ${template} pour ${imageCount} image(s)`);\n\n// Préparation de la payload finale\nreturn {\n  json: {\n    // Données pour Flask\n    prompt: aiAnalysis.title,\n    text_content: aiAnalysis.body,\n    subtitle: aiAnalysis.subtitle,\n    template: template,\n    image_urls: validationData.image_urls,\n    \n    // Métadonnées pour traçabilité\n    metadata: {\n      image_count: imageCount,\n      template_used: template,\n      processed_at: new Date().toISOString(),\n      ai_extraction_success: aiAnalysis.title !== \"Titre par défaut\"\n    }\n  }\n};"
+      },
+      "id": "e800fc52-3d09-4abc-aca9-3361f9368507",
+      "name": "🔗 Fusion & Préparation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5003/api/create-layout-urls",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "2680a7bf-f30b-43d6-8779-1fb81e4d31ef",
+      "name": "🚀 Appel Flask API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "52fe284a-fd37-4255-a7c3-b53f1773910e",
+      "name": "✅ Vérif Succès",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Préparation de la réponse de succès\nconst flaskResponse = $input.item.json;\nconst metadata = $node[\"🔗 Fusion & Préparation\"].json.metadata;\n\nconst projectId = flaskResponse.project_id || 'unknown';\nconst downloadUrl = `http://host.docker.internal:5003/api/download/${projectId}`;\n\nreturn {\n  json: {\n    status: 'success',\n    message: '🎉 Document InDesign créé avec succès!',\n    project_id: projectId,\n    download_url: downloadUrl,\n    details: {\n      template_used: metadata.template_used,\n      image_count: metadata.image_count,\n      processed_at: metadata.processed_at,\n      ai_analysis_success: metadata.ai_extraction_success\n    },\n    instructions: {\n      download: `Téléchargez votre document: ${downloadUrl}`,\n      preview: 'Le document contient votre article formaté avec les images intégrées'\n    }\n  }\n};"
+      },
+      "id": "23f378ff-8988-4d2b-9a4c-b5a7d01db21e",
+      "name": "✅ Réponse Succès",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gestion des erreurs avec détails\nconst error = $input.item.json;\nconst originalData = $node[\"🔍 Validation Données\"].json;\n\nlet errorMessage = 'Erreur inconnue lors de la création du document';\nlet errorDetails = {};\n\nif (error.error) {\n  errorMessage = error.error;\n}\n\nif (error.message) {\n  errorMessage = error.message;\n}\n\nerrorDetails = {\n  flask_response: error,\n  original_request: {\n    had_content: !!originalData.contenu,\n    image_count: originalData.image_count\n  },\n  timestamp: new Date().toISOString()\n};\n\nreturn {\n  json: {\n    status: 'error',\n    message: `❌ ${errorMessage}`,\n    error_details: errorDetails,\n    suggestions: [\n      'Vérifiez que le serveur Flask est accessible',\n      'Assurez-vous que les URLs d\\'images sont valides',\n      'Confirmez que le template existe'\n    ]\n  }\n};"
+      },
+      "id": "47832342-877b-4f3c-8586-38b5860b5a10",
+      "name": "❌ Réponse Erreur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "85187f15-704f-41ab-bd8c-6b2b4aca03bc",
+      "name": "📤 Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# ⚠️ Debug Tips\n\n## Si échec:\n1. Vérifier Docker: `host.docker.internal`\n2. Token: `alexandreesttropbeau`\n3. Flask logs: port 5003\n4. Format image_urls: string CSV ou array\n\n## Templates:\n- 1 image → `template-mag-simple-1808`\n- 2+ images → `template-mag-simple-2-1808`\n\n## Formats supportés:\n- ✅ JPG, PNG, GIF, TIFF, PSD\n- ❌ SVG (non supporté)",
+        "height": 280,
+        "width": 300
+      },
+      "id": "e9a8e76a-6725-4db0-9636-06937afc2979",
+      "name": "🔧 Debug",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔍 Validation Données",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Validation Données": {
+      "main": [
+        [
+          {
+            "node": "🤖 Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "🔗 Fusion & Préparation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Fusion & Préparation": {
+      "main": [
+        [
+          {
+            "node": "🚀 Appel Flask API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 Appel Flask API": {
+      "main": [
+        [
+          {
+            "node": "✅ Vérif Succès",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Vérif Succès": {
+      "main": [
+        [
+          {
+            "node": "✅ Réponse Succès",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Réponse Erreur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Réponse Succès": {
+      "main": [
+        [
+          {
+            "node": "📤 Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❌ Réponse Erreur": {
+      "main": [
+        [
+          {
+            "node": "📤 Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0c58a494b180993f365db360a01c1bc7b6bc47cc008c314ce86d0993e2b71cb"
+  }
+}
