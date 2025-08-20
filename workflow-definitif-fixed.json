@@ -1,0 +1,158 @@
+{
+  "name": "InDesign Automation - Définitif FIXED",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-node",
+      "name": "🎯 Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 0],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 📊 COLLECTEUR - Accès correct aux données webhook\nconst webhookData = $input.item.json.body;\n\nconsole.log('📊 WEBHOOK - ACCÈS CORRECT:');\nconsole.log('- Données body présentes:', !!webhookData);\nconsole.log('- Type:', typeof webhookData);\nconsole.log('- Keys:', webhookData ? Object.keys(webhookData) : 'null');\nconsole.log('- Contenu preview:', webhookData?.contenu?.substring(0, 100));\n\n// Vérification structure\nif (!webhookData || typeof webhookData !== 'object') {\n  throw new Error('webhookData invalide - structure: ' + JSON.stringify($input.item.json));\n}\n\nif (!webhookData.contenu) {\n  throw new Error('Champ contenu manquant - clés: ' + Object.keys(webhookData).join(', '));\n}\n\n// Préserver les données webhook + binary\nconst result = {\n  json: {\n    // Données webhook originales\n    contenu_original: webhookData.contenu,\n    subtitle_original: webhookData.subtitle || '',\n    \n    // Métadonnées\n    timestamp: new Date().toISOString(),\n    collecteur_status: 'webhook_data_extracted',\n    \n    // Debug\n    debug: {\n      webhook_structure: Object.keys($input.item.json),\n      body_structure: Object.keys(webhookData),\n      contenu_length: webhookData.contenu.length\n    }\n  },\n  binary: $input.item.binary || {}\n};\n\nconsole.log('✅ COLLECTEUR SUCCESS:');\nconsole.log('- Contenu extrait:', result.json.contenu_original.length, 'caractères');\nconsole.log('- Binary préservé:', Object.keys(result.binary).length, 'items');\n\nreturn result;"
+      },
+      "id": "collector-node",
+      "name": "📊 Collecteur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en création de contenu éditorial. À partir du texte fourni, génère un JSON avec :\n- title: titre accrocheur (max 60 caractères)\n- subtitle: sous-titre informatif (max 80 caractères) \n- body: corps de texte structuré et engageant\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.contenu_original }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "openai-node",
+      "name": "🤖 OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [400, 200],
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 FUSION - Méthode sûre basée sur le workflow fonctionnel\nconst allInputs = $input.all();\nconsole.log('🔗 FUSION - ANALYSE INPUTS:', allInputs.length);\n\n// Identifier les données par leur structure\nlet collectorData = null;\nlet openAIData = null;\n\nallInputs.forEach((input, index) => {\n  console.log(`Input ${index}:`, {\n    hasJson: !!input.json,\n    isCollector: !!(input.json?.collecteur_status),\n    isOpenAI: !!(input.json && Array.isArray(input.json) && input.json[0]?.message),\n    keys: input.json ? Object.keys(input.json) : []\n  });\n  \n  // Collecteur = contient collecteur_status\n  if (input.json?.collecteur_status === 'webhook_data_extracted') {\n    collectorData = input;\n    console.log('✅ COLLECTEUR TROUVÉ');\n  }\n  \n  // OpenAI = structure array avec message (comme workflow fonctionnel)\n  if (Array.isArray(input.json) && input.json[0]?.message?.content) {\n    openAIData = input;\n    console.log('✅ OPENAI TROUVÉ');\n  }\n});\n\n// Validation\nif (!collectorData) {\n  throw new Error('Données collecteur manquantes');\n}\n\n// Parse OpenAI (méthode du workflow fonctionnel)\nlet aiTitle = 'Titre par défaut';\nlet aiSubtitle = 'Sous-titre par défaut';\nlet aiBody = collectorData.json.contenu_original;\n\nif (openAIData && openAIData.json[0]?.message?.content) {\n  const aiResponse = openAIData.json[0].message.content;\n  console.log('🤖 AI RESPONSE BRUT:', aiResponse.substring(0, 200));\n  \n  try {\n    // Nettoyage comme dans le workflow fonctionnel\n    const cleanResponse = aiResponse.replace(/```json\\n?|```\\n?/g, '').trim();\n    const analysis = JSON.parse(cleanResponse);\n    \n    aiTitle = analysis.title || aiTitle;\n    aiSubtitle = analysis.subtitle || aiSubtitle;\n    aiBody = analysis.body || aiBody;\n    \n    console.log('✅ IA PARSING SUCCESS:', { title: aiTitle, subtitle: aiSubtitle });\n  } catch (e) {\n    console.log('❌ IA PARSING FAILED:', e.message);\n  }\n} else {\n  console.log('⚠️ OpenAI data manquante - utilisation valeurs par défaut');\n}\n\n// Résultat final\nconst result = {\n  json: {\n    // Données originales\n    contenu_original: collectorData.json.contenu_original,\n    subtitle_original: collectorData.json.subtitle_original,\n    \n    // Données IA analysées\n    ai_title: aiTitle,\n    ai_subtitle: aiSubtitle,\n    ai_body: aiBody,\n    \n    // Debug complet\n    debug: {\n      inputs_count: allInputs.length,\n      collector_found: !!collectorData,\n      openai_found: !!openAIData,\n      ai_parsing_success: aiTitle !== 'Titre par défaut',\n      binary_preserved: !!(collectorData.binary && Object.keys(collectorData.binary).length > 0),\n      binary_count: collectorData.binary ? Object.keys(collectorData.binary).length : 0\n    }\n  },\n  binary: collectorData.binary || {}\n};\n\nconsole.log('🎯 FUSION RESULT:');\nconsole.log('- AI Title:', result.json.ai_title);\nconsole.log('- Binary preserved:', result.json.debug.binary_preserved);\nconsole.log('- Binary count:', result.json.debug.binary_count);\n\nreturn result;"
+      },
+      "id": "fusion-node",
+      "name": "🔗 Fusion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5003/api/create-layout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.ai_title }}"
+            },
+            {
+              "name": "text_content",
+              "value": "={{ $json.ai_body }}"
+            },
+            {
+              "name": "subtitle",
+              "value": "={{ $json.ai_subtitle }}"
+            },
+            {
+              "name": "template",
+              "value": "default"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "images",
+              "inputDataFieldName": "images"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "flask-node",
+      "name": "🚀 Flask",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ✅ RÉSULTAT FINAL - Style workflow fonctionnel\nconst flaskResponse = $input.item.json;\nconst fusionData = $input.first();\n\nconsole.log('✅ RÉSULTAT FINAL:');\nconsole.log('- Flask success:', !!flaskResponse?.success);\nconsole.log('- Project ID:', flaskResponse?.project_id);\nconsole.log('- AI data:', fusionData?.json?.debug);\n\nif (flaskResponse?.success) {\n  return {\n    json: {\n      status: 'success',\n      message: '🎉 Document InDesign créé avec IA + images !',\n      project_id: flaskResponse.project_id,\n      download_url: `http://host.docker.internal:5003/api/download/${flaskResponse.project_id}`,\n      \n      details: {\n        ai_analysis: {\n          title: fusionData?.json?.ai_title,\n          subtitle: fusionData?.json?.ai_subtitle,\n          body_preview: fusionData?.json?.ai_body?.substring(0, 100) + '...'\n        },\n        technical: {\n          ai_parsing_success: fusionData?.json?.debug?.ai_parsing_success,\n          binary_preserved: fusionData?.json?.debug?.binary_preserved,\n          binary_count: fusionData?.json?.debug?.binary_count\n        }\n      }\n    }\n  };\n} else {\n  return {\n    json: {\n      status: 'error',\n      message: '❌ Erreur création document',\n      error: flaskResponse?.error || 'Erreur inconnue',\n      debug: {\n        flask_response: flaskResponse,\n        fusion_debug: fusionData?.json?.debug\n      }\n    }\n  };\n}"
+      },
+      "id": "result-node",
+      "name": "✅ Résultat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 100]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook": {
+      "main": [[
+        { "node": "📊 Collecteur", "type": "main", "index": 0 },
+        { "node": "🤖 OpenAI", "type": "main", "index": 0 }
+      ]]
+    },
+    "📊 Collecteur": {
+      "main": [[
+        { "node": "🔗 Fusion", "type": "main", "index": 0 }
+      ]]
+    },
+    "🤖 OpenAI": {
+      "main": [[
+        { "node": "🔗 Fusion", "type": "main", "index": 0 }
+      ]]
+    },
+    "🔗 Fusion": {
+      "main": [[
+        { "node": "🚀 Flask", "type": "main", "index": 0 }
+      ]]
+    },
+    "🚀 Flask": {
+      "main": [[
+        { "node": "✅ Résultat", "type": "main", "index": 0 }
+      ]]
+    }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" }
+}

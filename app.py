@@ -137,8 +137,9 @@ def create_layout():
         template_name = request.form.get('template', 'default')
         rectangle_index = request.form.get('rectangle_index', '0')
         
-        if not prompt:
-            return jsonify({'error': 'Le prompt est requis'}), 400
+        # Autoriser l'absence de prompt si text_content est fourni
+        if not prompt and not text_content:
+            return jsonify({'error': 'Le prompt ou le contenu texte est requis'}), 400
         
         # Créer un ID unique pour ce projet
         project_id = str(uuid.uuid4())
@@ -499,6 +500,64 @@ def get_config():
         'status': 'running',
         'port': 5003
     })
+
+@app.route('/api/upload-and-process', methods=['POST'])
+def upload_and_process():
+    """Endpoint hybride: reçoit images uploadées + contenu, puis appelle le workflow n8n"""
+    try:
+        # Auth
+        error_response, status_code = _require_bearer_or_401()
+        if error_response:
+            return error_response, status_code
+            
+        # Récupérer le contenu
+        contenu = request.form.get('contenu')
+        if not contenu:
+            return jsonify({'error': 'Champ "contenu" manquant'}), 400
+            
+        # Traiter les images uploadées
+        image_urls = []
+        if 'images' in request.files:
+            files = request.files.getlist('images')
+            project_id = str(uuid.uuid4())
+            upload_folder = os.path.join(app.config['UPLOAD_FOLDER'], project_id)
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            for file in files:
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    filepath = os.path.join(upload_folder, filename)
+                    file.save(filepath)
+                    # Créer une URL locale pour l'image
+                    image_url = f"http://localhost:5003/uploads/{project_id}/{filename}"
+                    image_urls.append(image_url)
+        
+        # Préparer les données pour le webhook n8n
+        webhook_data = {
+            'contenu': contenu,
+            'image_urls': ','.join(image_urls) if image_urls else ''
+        }
+        
+        # Appeler le webhook n8n
+        import requests
+        webhook_url = 'http://localhost:5678/webhook/indesign-webhook'
+        response = requests.post(webhook_url, json=webhook_data, timeout=120)
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return jsonify({
+                'error': 'Erreur du workflow n8n',
+                'details': response.text
+            }), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+@app.route('/uploads/<path:filename>')
+def serve_uploaded_file(filename):
+    """Servir les fichiers uploadés"""
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
 # Endpoint de santé simple
 @app.route('/health')

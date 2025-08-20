@@ -1,0 +1,214 @@
+{
+  "name": "InDesign Automation - Final",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "indesign-webhook",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "ad616c64-b67e-46ee-ac1b-17b82e27db39",
+      "name": "🎯 Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        512,
+        -80
+      ],
+      "webhookId": "indesign-webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Tu es un expert en création de contenu éditorial. À partir du texte fourni, génère un JSON avec :\n- title: titre accrocheur (max 60 caractères)\n- subtitle: sous-titre informatif (max 80 caractères) \n- body: corps de texte structuré et engageant\n\nRéponds UNIQUEMENT avec le JSON, sans autre texte.\n\nTexte à analyser: {{ $json.body.contenu || 'Contenu par défaut' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9e72bd72-c23d-4057-99ed-2bcd822a03c6",
+      "name": "🤖 Analyse OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        160
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "A4sGX0IKylO9EDvF",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔗 Fusion données - SOLUTION SIMPLE v7\n// STRATÉGIE: Seulement input actuel + all inputs\n\nconst currentInput = $input.item;\nconst allInputs = $input.all();\n\nconsole.log('📊 DEBUG:');\nconsole.log('- Current input type:', typeof currentInput);\nconsole.log('- All inputs count:', allInputs.length);\nconsole.log('- Current JSON keys:', currentInput?.json ? Object.keys(currentInput.json) : 'null');\nconsole.log('- Current binary keys:', currentInput?.binary ? Object.keys(currentInput.binary) : 'null');\n\n// Parse OpenAI depuis input actuel\nlet aiTitle = 'Titre IA manquant';\nlet aiSubtitle = 'Sous-titre IA manquant';\nlet aiBody = 'Corps IA manquant';\n\nif (currentInput?.json && Array.isArray(currentInput.json)) {\n  const aiMessage = currentInput.json[0]?.message;\n  if (aiMessage?.content) {\n    const aiContent = aiMessage.content;\n    console.log('🤖 AI CONTENT TROUVÉ:', aiContent.substring(0, 200));\n    \n    try {\n      const cleanJson = aiContent\n        .replace(/```json/g, '')\n        .replace(/```/g, '')\n        .trim();\n      \n      const parsed = JSON.parse(cleanJson);\n      console.log('🤖 AI PARSED:', parsed);\n      \n      if (parsed.title) aiTitle = parsed.title;\n      if (parsed.subtitle) aiSubtitle = parsed.subtitle;\n      if (parsed.body) aiBody = parsed.body;\n      \n      console.log('✅ AI parsing SUCCESS');\n    } catch (error) {\n      console.log('❌ AI parsing FAILED:', error.message);\n    }\n  } else {\n    console.log('❌ Pas de message.content dans input actuel');\n  }\n} else {\n  console.log('❌ Input actuel pas un array');\n}\n\n// Récupération binaires depuis input actuel\nconst finalBinary = {};\nlet binaryFound = false;\n\nconsole.log('📎 RECHERCHE BINAIRES:');\nif (currentInput?.binary && Object.keys(currentInput.binary).length > 0) {\n  Object.keys(currentInput.binary).forEach(key => {\n    const binaryData = currentInput.binary[key];\n    console.log(`📎 Binary [${key}]:`, {\n      exists: !!binaryData,\n      type: typeof binaryData,\n      hasData: !!(binaryData?.data),\n      hasId: !!(binaryData?.id)\n    });\n    \n    if (binaryData && (binaryData.data || binaryData.id)) {\n      finalBinary.images = binaryData;\n      console.log(`✅ BINARY VALID: ${key} → images`);\n      binaryFound = true;\n    }\n  });\n} else {\n  console.log('⚠️ Pas de binaires dans input actuel');\n}\n\nconst result = {\n  json: {\n    contenu: 'Contenu depuis input OpenAI',\n    subtitle: '',\n    ai_title: aiTitle,\n    ai_subtitle: aiSubtitle,\n    ai_body: aiBody,\n    debug: {\n      current_input_found: !!currentInput,\n      ai_array: Array.isArray(currentInput?.json),\n      ai_message: !!(currentInput?.json?.[0]?.message?.content),\n      binary_found: binaryFound,\n      binary_count: Object.keys(finalBinary).length\n    }\n  },\n  binary: finalBinary\n};\n\nconsole.log('🎯 RÉSULTAT:');\nconsole.log('- AI Title:', result.json.ai_title);\nconsole.log('- Binary count:', Object.keys(result.binary).length);\n\nreturn result;"
+      },
+      "id": "8502f4bd-c7b3-4755-8812-93680a76152d",
+      "name": "🔗 Fusion données",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5003/api/create-layout",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer alexandreesttropbeau"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.ai_title || 'Titre par défaut' }}"
+            },
+            {
+              "name": "text_content", 
+              "value": "={{ $json.ai_body || 'Corps par défaut' }}"
+            },
+            {
+              "name": "subtitle",
+              "value": "={{ $json.ai_subtitle || 'Sous-titre par défaut' }}"
+            },
+            {
+              "name": "template",
+              "value": "default"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "9966c30e-fc54-4b3d-9f51-112d5e50b460",
+      "name": "🚀 Appel Flask (Upload)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🔍 DEBUG COMPLET - Collecte tous les logs\nconst result = {\n  webhook_output: null,\n  openai_output: null,\n  fusion_output: $input.item.json,\n  flask_output: null,\n  current_input: $input.item,\n  timestamp: new Date().toISOString(),\n  debug_summary: {\n    workflow_status: 'Collecte des données...',\n    issues: []\n  }\n};\n\n// Tenter de récupérer les données des autres nœuds\ntry {\n  // Récupération sécurisée des outputs précédents\n  const allItems = $input.all();\n  console.log('🔍 TOUS LES ITEMS:', allItems.length);\n  \n  allItems.forEach((item, index) => {\n    console.log(`Item ${index}:`, {\n      hasJson: !!item.json,\n      hasBinary: !!item.binary,\n      jsonKeys: item.json ? Object.keys(item.json) : [],\n      binaryKeys: item.binary ? Object.keys(item.binary) : []\n    });\n  });\n  \n  result.all_items = allItems;\n  \n} catch (error) {\n  console.log('❌ Erreur récupération:', error.message);\n  result.debug_summary.issues.push('Erreur récupération: ' + error.message);\n}\n\nconsole.log('🔍 EXPORT COMPLET:', JSON.stringify(result, null, 2));\n\nreturn result;"
+      },
+      "id": "ef281e7e-84ab-4e14-9ef0-cb03b08487fa",
+      "name": "🔍 Debug Complet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const debugData = $input.item.json;\n\n// Analyse des données collectées\nlet analysis = {\n  webhook_found: false,\n  openai_found: false,\n  images_found: false,\n  ai_content_found: false,\n  flask_success: false,\n  issues: []\n};\n\n// Vérifier les données Flask\nif (debugData.flask_output && debugData.flask_output.success) {\n  analysis.flask_success = true;\n} else {\n  analysis.issues.push('Flask: pas de succès détecté');\n}\n\n// Vérifier les images\nif (debugData.all_items) {\n  debugData.all_items.forEach((item, index) => {\n    if (item.binary && Object.keys(item.binary).length > 0) {\n      analysis.images_found = true;\n      console.log(`✅ Images trouvées dans item ${index}`);\n    }\n  });\n}\n\nif (!analysis.images_found) {\n  analysis.issues.push('Images: non trouvées dans les items');\n}\n\n// Résultat final basé sur les données Flask\nconst flaskResult = debugData.fusion_output;\nif (flaskResult && flaskResult.success) {\n  return { \n    json: { \n      status: 'success', \n      project_id: flaskResult.project_id, \n      download_url: 'http://host.docker.internal:5003/api/download/' + flaskResult.project_id,\n      message: '🎉 Document InDesign créé avec succès !',\n      analysis: analysis,\n      debug_data: debugData\n    } \n  };\n}\n\nreturn { \n  json: { \n    status: 'analysis_complete', \n    analysis: analysis,\n    debug_data: debugData,\n    message: 'Debug terminé - vérifiez les issues'\n  } \n};"
+      },
+      "id": "debug-final-node-id",
+      "name": "✅ Résultat Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        -80
+      ]
+    }
+  ],
+  "connections": {
+    "🎯 Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "🤖 Analyse OpenAI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "🔗 Fusion données",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 Analyse OpenAI": {
+      "main": [
+        [
+          {
+            "node": "🔗 Fusion données",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Fusion données": {
+      "main": [
+        [
+          {
+            "node": "🚀 Appel Flask (Upload)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚀 Appel Flask (Upload)": {
+      "main": [
+        [
+          {
+            "node": "🔍 Debug Complet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Debug Complet": {
+      "main": [
+        [
+          {
+            "node": "✅ Résultat Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e0c58a494b180993f365db360a01c1bc7b6bc47cc008c314ce86d0993e2b71cb"
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1.0.0"
+}
