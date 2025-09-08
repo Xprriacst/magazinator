@@ -584,5 +584,36 @@ def health():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
+# Endpoint de redémarrage du serveur
+@app.route('/restart', methods=['POST'])
+def restart_server():
+    """Redémarre le serveur Flask"""
+    try:
+        import os
+        import signal
+        import threading
+        import time
+        
+        def shutdown_server():
+            # Attendre un peu pour permettre à la réponse d'être envoyée
+            time.sleep(1)
+            # Envoyer un signal SIGTERM au processus actuel
+            os.kill(os.getpid(), signal.SIGTERM)
+        
+        # Lancer le redémarrage dans un thread séparé
+        thread = threading.Thread(target=shutdown_server)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'status': 'restarting',
+            'message': 'Serveur en cours de redémarrage...'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error', 
+            'error': f'Erreur lors du redémarrage: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5003)
