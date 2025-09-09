@@ -503,17 +503,21 @@ def get_config():
 
 @app.route('/api/upload-and-process', methods=['POST'])
 def upload_and_process():
-    """Endpoint hybride: reçoit images uploadées + contenu, puis appelle le workflow n8n"""
     try:
         # Auth
         error_response, status_code = _require_bearer_or_401()
         if error_response:
             return error_response, status_code
             
-        # Récupérer le contenu
-        contenu = request.form.get('contenu')
+        # Récupérer les données du formulaire
+        contenu = request.form.get('contenu', '')
+        template = request.form.get('template', 'Template art page 1.indt')  # Template sélectionné
+        
+        # Récupérer les fichiers uploadés
+        uploaded_files = request.files.getlist('images')
+        
         if not contenu:
-            return jsonify({'error': 'Champ "contenu" manquant'}), 400
+            return jsonify({'error': 'Le contenu est requis'}), 400
             
         # Traiter les images uploadées
         image_urls = []
@@ -535,7 +539,8 @@ def upload_and_process():
         # Préparer les données pour le webhook n8n
         webhook_data = {
             'contenu': contenu,
-            'image_urls': ','.join(image_urls) if image_urls else ''
+            'image_urls': ','.join(image_urls) if image_urls else '',
+            'template': template
         }
         
         # Appeler le webhook n8n
