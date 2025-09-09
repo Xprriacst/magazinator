@@ -16,6 +16,12 @@ function parseSimpleJSON(jsonString) {
             // alert("✅ Project ID trouvé: " + config.project_id);
         }
         
+        // Extraire template
+        var templateMatch = jsonString.match(/"template":\s*"([^"]+)"/);
+        if (templateMatch) {
+            config.template = templateMatch[1];
+        }
+        
         // Extraire prompt
         var promptMatch = jsonString.match(/"prompt":\s*"([^"]+)"/);
         if (promptMatch) {
@@ -112,10 +118,17 @@ function main() {
             return false;
         }
         
-        // alert("✅ Config parsée: " + config.project_id);
+        alert("✅ Config parsée: " + config.project_id + " | Template: " + config.template + " | Prompt: " + config.prompt);
+        
+        // Utiliser le template spécifié dans la config, ou par défaut Magazine art template page 1
+        var templateName = config.template || "Magazine art template page 1.idml";
+        // Garder l'extension originale (.idml ou .indt)
+        if (templateName.indexOf('.idml') === -1 && templateName.indexOf('.indt') === -1) {
+            templateName += '.idml';
+        }
         
         // Ouvrir le template
-        var templatePath = basePath + "/indesign_templates/template-mag-simple-1808.indt";
+        var templatePath = basePath + "/indesign_templates/" + templateName;
         var templateFile = new File(templatePath);
         
         if (!templateFile.exists) {
@@ -142,10 +155,98 @@ function main() {
             
             // Détecter quel template on utilise depuis le nom du fichier
             var templateName = templateFile.name;
-            // alert("🔍 Template détecté: " + templateName);
+            alert("🔍 Template détecté: " + templateName);
             
-            if (templateName.indexOf("template-mag-simple-1808") !== -1) {
+            // Décoder les caractères URL encodés
+            templateName = decodeURIComponent(templateName);
+            alert("🔍 Template décodé: " + templateName);
+            
+            if (templateName.indexOf("Magazine art template page 1") !== -1) {
+                // Magazine Art Template Page 1: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
+                
+                // 1. Remplacer "{{TITRE}}" 
+                app.findTextPreferences.findWhat = "{{TITRE}}";
+                app.changeTextPreferences.changeTo = config.prompt || "Nouveau titre";
+                var foundTitre = doc.changeText();
+                // alert("✅ {{TITRE}} remplacé: " + foundTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 2. Remplacer "{{SOUS-TITRE}}"
+                app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
+                var subtitleText = config.subtitle || "Sous-titre par défaut";
+                app.changeTextPreferences.changeTo = subtitleText;
+                var foundSousTitre = doc.changeText();
+                // alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 3. Remplacer "{{ARTICLE}}"
+                app.findTextPreferences.findWhat = "{{ARTICLE}}";
+                app.changeTextPreferences.changeTo = config.text_content || "Contenu de l'article";
+                var foundArticle = doc.changeText();
+                // alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
+                
+            } else if (templateName.indexOf("Template art page 2") !== -1) {
+                // Template Art Page 2: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
+                
+                // 1. Remplacer "{{TITRE}}" 
+                app.findTextPreferences.findWhat = "{{TITRE}}";
+                app.changeTextPreferences.changeTo = config.prompt || "Nouveau titre";
+                var foundTitre = doc.changeText();
+                // alert("✅ {{TITRE}} remplacé: " + foundTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 2. Remplacer "{{SOUS-TITRE}}"
+                app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
+                var subtitleText = config.subtitle || "Sous-titre par défaut";
+                app.changeTextPreferences.changeTo = subtitleText;
+                var foundSousTitre = doc.changeText();
+                // alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 3. Remplacer "{{ARTICLE}}"
+                app.findTextPreferences.findWhat = "{{ARTICLE}}";
+                app.changeTextPreferences.changeTo = config.text_content || "Contenu de l'article";
+                var foundArticle = doc.changeText();
+                // alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
+                
+            } else if (templateName.indexOf("template-mag-simple-1808") !== -1) {
                 // Template 1: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
+                
+                // 1. Remplacer "{{TITRE}}" 
+                app.findTextPreferences.findWhat = "{{TITRE}}";
+                app.changeTextPreferences.changeTo = config.prompt || "Nouveau titre";
+                var foundTitre = doc.changeText();
+                // alert("✅ {{TITRE}} remplacé: " + foundTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 2. Remplacer "{{SOUS-TITRE}}"
+                app.findTextPreferences.findWhat = "{{SOUS-TITRE}}";
+                var subtitleText = config.subtitle || "Sous-titre par défaut";
+                app.changeTextPreferences.changeTo = subtitleText;
+                var foundSousTitre = doc.changeText();
+                // alert("✅ {{SOUS-TITRE}} remplacé: " + foundSousTitre.length + " occurrence(s)");
+                
+                app.findTextPreferences = NothingEnum.NOTHING;
+                app.changeTextPreferences = NothingEnum.NOTHING;
+                
+                // 3. Remplacer "{{ARTICLE}}"
+                app.findTextPreferences.findWhat = "{{ARTICLE}}";
+                app.changeTextPreferences.changeTo = config.text_content || "Contenu de l'article";
+                var foundArticle = doc.changeText();
+                // alert("✅ {{ARTICLE}} remplacé: " + foundArticle.length + " occurrence(s)");
+                
+            } else if (templateName.indexOf("Template art page 1") !== -1) {
+                // Template Art Page 1 ou 2: {{TITRE}}, {{SOUS-TITRE}}, {{ARTICLE}}
                 
                 // 1. Remplacer "{{TITRE}}" 
                 app.findTextPreferences.findWhat = "{{TITRE}}";
