@@ -56,7 +56,7 @@
         "messages": {
           "values": [
             {
-              "content": "TEMPLATE: {{ $json.template }}\n\n{% if 'page 2' in ($json.template || '') %}\nGénère ce format JSON pour template page 2:\n{\n  \"title\": \"[titre principal]\",\n  \"category\": \"[catégorie]\",\n  \"article_principal\": \"[article principal]\",\n  \"encadre_1\": \"[premier point clé]\",\n  \"encadre_2\": \"[deuxième point]\",\n  \"encadre_3\": \"[conclusion]\"\n}\n{% else %}\nGénère ce format JSON pour template page 1:\n{\n  \"title\": \"[titre principal]\",\n  \"category\": \"[catégorie]\",\n  \"subtitle\": \"[sous-titre encadré]\",\n  \"article_principal\": \"[article principal]\",\n  \"lettrine_texte\": \"[texte lettrine]\"\n}\n{% endif %}\n\nTexte: {{ $json.contenu }}",
+              "content": "TEMPLATE: {{ $json.template }}\n\n{% if 'template 2' in ($json.template || '') %}\nGénère ce format JSON pour Magazine art template 2 (TITRE MAX 12 CARACTÈRES):\n{\n  \"title\": \"[titre 12 char max]\",\n  \"article_principal\": \"[contenu principal détaillé]\",\n  \"encadre_1\": \"[premier point clé ou statistique]\",\n  \"encadre_2\": \"[deuxième point important]\",\n  \"encadre_3\": \"[conclusion ou citation]\"\n}\n{% else %}\nGénère ce format JSON pour Magazine art template page 1:\n{\n  \"title\": \"[titre principal]\",\n  \"category\": \"[catégorie]\",\n  \"subtitle\": \"[sous-titre encadré]\",\n  \"article_principal\": \"[article principal]\",\n  \"lettrine_texte\": \"[texte lettrine]\"\n}\n{% endif %}\n\nTexte: {{ $json.contenu }}",
               "role": "system"
             },
             {
